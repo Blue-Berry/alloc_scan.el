@@ -78,23 +78,121 @@ Add these to your Emacs configuration:
 
 ### Variables
 
-- `alloc-scan-highlight-face` - Face used to highlight allocation points (default: `highlight`)
+- `alloc-scan-highlight-style` - Style of highlighting (default: `'box`)
+- `alloc-scan-highlight-color` - Color for highlighting (default: `"#cccccc"`)
 - `alloc-scan-show-virtual-text` - Whether to show allocation details as virtual text (default: `t`)
 - `alloc-scan-virtual-text-face` - Face used for virtual text (default: `font-lock-comment-face`)
 
-### Example Configuration
+### Highlight Styles
+
+The plugin supports several highlighting styles:
+
+- **`'box`** - Border outline around allocation (default)
+- **`'underline`** - Underline the allocation text
+- **`'background`** - Light background color
+- **`'bold`** - Bold text with colored foreground
+- **`'custom`** - Use custom face definition
+
+### Example Configurations
+
+#### Box Style (Default - Subtle Outline)
+```elisp
+;; Subtle grey outline (recommended)
+(setq alloc-scan-highlight-style 'box
+      alloc-scan-highlight-color "#999999")
+
+;; Very light grey outline
+(setq alloc-scan-highlight-style 'box
+      alloc-scan-highlight-color "#cccccc")
+
+;; Red outline for high visibility
+(setq alloc-scan-highlight-style 'box
+      alloc-scan-highlight-color "#ff6b6b")
+```
+
+#### Underline Style
+```elisp
+;; Subtle grey underline
+(setq alloc-scan-highlight-style 'underline
+      alloc-scan-highlight-color "#aaaaaa")
+
+;; Blue underline
+(setq alloc-scan-highlight-style 'underline
+      alloc-scan-highlight-color "#4dabf7")
+```
+
+#### Background Style
+```elisp
+;; Light yellow background
+(setq alloc-scan-highlight-style 'background
+      alloc-scan-highlight-color "#fffacd")
+
+;; Very light grey background
+(setq alloc-scan-highlight-style 'background
+      alloc-scan-highlight-color "#f8f9fa")
+
+;; Light pink background
+(setq alloc-scan-highlight-style 'background
+      alloc-scan-highlight-color "#ffe0e6")
+```
+
+#### Bold Style
+```elisp
+;; Bold dark grey text
+(setq alloc-scan-highlight-style 'bold
+      alloc-scan-highlight-color "#666666")
+
+;; Bold blue text
+(setq alloc-scan-highlight-style 'bold
+      alloc-scan-highlight-color "#1971c2")
+```
+
+#### Custom Style
+```elisp
+;; Use the built-in custom face (can be customized via M-x customize-face)
+(setq alloc-scan-highlight-style 'custom)
+
+;; Or define your own custom face
+(defface my-alloc-highlight
+  '((t (:box (:line-width 2 :color "#ff9500" :style nil)
+        :background "#fff3cd")))
+  "Custom face for allocation highlighting.")
+
+(setq alloc-scan-highlight-style 'custom)
+(setq alloc-scan-highlight-face 'my-alloc-highlight)
+```
+
+### Using Emacs Customize Interface
+
+For an interactive way to customize the plugin:
+
+```elisp
+M-x customize-group RET alloc-scan RET
+```
+
+### Complete Package Configuration
 
 ```elisp
 (use-package alloc-scan
   :load-path "/path/to/alloc-scan.el"
   :custom
-  (alloc-scan-highlight-face 'warning)
-  (alloc-scan-virtual-text-face 'font-lock-doc-face)
+  (alloc-scan-highlight-style 'box)
+  (alloc-scan-highlight-color "#999999")
   (alloc-scan-show-virtual-text t)
+  (alloc-scan-virtual-text-face 'font-lock-doc-face)
   :bind
   (("C-c a s" . alloc-scan)
    ("C-c a f" . alloc-scan-file)
    ("C-c a c" . alloc-scan-clear)))
+```
+
+### Applying Changes
+
+After changing settings, clear existing highlights and rescan:
+
+```elisp
+M-x alloc-scan-clear RET
+M-x alloc-scan RET
 ```
 
 ## How It Works

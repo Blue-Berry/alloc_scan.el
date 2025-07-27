@@ -58,6 +58,26 @@
   "Face used to highlight allocation points with a subtle outline."
   :group 'alloc-scan)
 
+(defcustom alloc-scan-highlight-style 'box
+  "Style of highlighting for allocation points.
+- `box': Thin border around the allocation
+- `underline': Underline the allocation
+- `background': Light background color
+- `bold': Make text bold
+- `custom': Use the alloc-scan-highlight-face directly"
+  :type '(choice (const :tag "Subtle box outline" box)
+                 (const :tag "Underline" underline)
+                 (const :tag "Light background" background)
+                 (const :tag "Bold text" bold)
+                 (const :tag "Custom face" custom))
+  :group 'alloc-scan)
+
+(defcustom alloc-scan-highlight-color "#cccccc"
+  "Color used for allocation highlighting.
+This applies to box borders, underlines, and backgrounds."
+  :type 'color
+  :group 'alloc-scan)
+
 (defcustom alloc-scan-show-virtual-text t
   "Whether to show allocation details as virtual text."
   :type 'boolean
@@ -147,6 +167,27 @@ Goes up the directory tree until a dune-project file is found."
 
 ;;; Highlighting functions
 
+(defun alloc-scan--get-highlight-face ()
+  "Get the face to use for highlighting based on user preferences."
+  (cond
+   ((eq alloc-scan-highlight-style 'box)
+    `(:box (:line-width 1 :color ,alloc-scan-highlight-color :style nil)))
+   
+   ((eq alloc-scan-highlight-style 'underline)
+    `(:underline (:color ,alloc-scan-highlight-color :style line)))
+   
+   ((eq alloc-scan-highlight-style 'background)
+    `(:background ,alloc-scan-highlight-color))
+   
+   ((eq alloc-scan-highlight-style 'bold)
+    `(:weight bold :foreground ,alloc-scan-highlight-color))
+   
+   ((eq alloc-scan-highlight-style 'custom)
+    'alloc-scan-highlight-face)
+   
+   (t
+    'alloc-scan-highlight-face)))
+
 (defun alloc-scan--create-overlay (line col-start col-end blocks)
   "Create an overlay for allocation at LINE from COL-START to COL-END with BLOCKS."
   (save-excursion
@@ -159,7 +200,7 @@ Goes up the directory tree until a dune-project file is found."
         (let* ((start-pos (+ line-start col-start))
                (end-pos (min (+ line-start col-end) line-end))
                (overlay (make-overlay start-pos end-pos)))
-          (overlay-put overlay 'face 'alloc-scan-highlight-face)
+          (overlay-put overlay 'face (alloc-scan--get-highlight-face))
           (when alloc-scan-show-virtual-text
             (let ((num-blocks (/ blocks 1024))
                   (tag (% blocks 1024)))
