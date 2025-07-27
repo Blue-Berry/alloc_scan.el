@@ -2,11 +2,11 @@
 
 ;; Copyright (C) 2024
 
-;; Author: Your Name <your.email@example.com>
+;; Author: Liam Berry <liamandberry@gmail.com>
 ;; Keywords: ocaml, tools, languages
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "28.1"))
-;; URL: https://github.com/yourusername/alloc-scan.el
+;; URL: https://github.com/Blue-Berry/alloc-scan.el
 
 ;; This file is not part of GNU Emacs.
 
@@ -53,9 +53,9 @@
   :group 'tools
   :prefix "alloc-scan-")
 
-(defcustom alloc-scan-highlight-face 'highlight
-  "Face used to highlight allocation points."
-  :type 'face
+(defface alloc-scan-highlight-face
+  '((t (:box (:line-width 1 :color "#cccccc" :style nil))))
+  "Face used to highlight allocation points with a subtle outline."
   :group 'alloc-scan)
 
 (defcustom alloc-scan-show-virtual-text t
@@ -159,13 +159,13 @@ Goes up the directory tree until a dune-project file is found."
         (let* ((start-pos (+ line-start col-start))
                (end-pos (min (+ line-start col-end) line-end))
                (overlay (make-overlay start-pos end-pos)))
-          (overlay-put overlay 'face alloc-scan-highlight-face)
+          (overlay-put overlay 'face 'alloc-scan-highlight-face)
           (when alloc-scan-show-virtual-text
             (let ((num-blocks (/ blocks 1024))
                   (tag (% blocks 1024)))
               (overlay-put overlay 'after-string
-                          (propertize (format " [Blocks: %d; Tag: %d]" num-blocks tag)
-                                    'face alloc-scan-virtual-text-face))))
+                           (propertize (format " [Blocks: %d; Tag: %d]" num-blocks tag)
+                                       'face alloc-scan-virtual-text-face))))
           (overlay-put overlay 'alloc-scan t)
           (push overlay alloc-scan--overlays)
           overlay)))))
@@ -186,7 +186,7 @@ Goes up the directory tree until a dune-project file is found."
           ;; Check if this allocation is for the current file
           (when (or (string-suffix-p filepath current-file)
                     (string-suffix-p (file-name-nondirectory filepath)
-                                   (file-name-nondirectory current-file)))
+                                     (file-name-nondirectory current-file)))
             (alloc-scan--create-overlay line col-start col-end blocks)))))))
 
 ;;; File selection
@@ -221,12 +221,12 @@ Goes up the directory tree until a dune-project file is found."
      (t
       (let* ((file-alist (mapcar (lambda (file)
                                    (cons (concat (file-name-nondirectory file)
-                                               " (" (file-name-directory file) ")")
+                                                 " (" (file-name-directory file) ")")
                                          file))
                                  dump-files))
              (choice (completing-read "Select dump file: " 
-                                    file-alist nil t nil nil
-                                    (caar file-alist))))
+                                      file-alist nil t nil nil
+                                      (caar file-alist))))
         (cdr (assoc choice file-alist)))))))
 
 ;;; Interactive commands
