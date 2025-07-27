@@ -1,0 +1,41 @@
+(function{otree/otree.ml:61,20-263} camlOtree.update_centroid_445
+     (tree/5999: val node_index/5998: val c/5997: val)
+ (let
+   (apply_arg/6000 (load val c/5997)
+    apply_arg/6003
+      (alloc{otree/otree.ml:63,35-44;body/body.ml:13,12-33;src/base/core/owl_operator.ml:153,28-41;src/owl/dense/owl_dense_matrix_generic.ml:252,48-58}
+        2048 1 1)
+    Pccall/6004
+      (extcall "caml_ba_get_generic"{otree/otree.ml:63,35-44;body/body.ml:13,12-33;src/base/core/owl_operator.ml:153,28-41;src/owl/dense/owl_dense_matrix_generic.ml:252,16-58;src/owl/dense/owl_dense_ndarray_generic.ml:21,14-30}
+        apply_arg/6000 apply_arg/6003 int,int->val)
+    Pbigarrayset/6007
+      (seq
+        (let ba/6750 (load_mut val (+a tree/5999 16))
+          (store float32
+            (+a
+              (+a (load_mut int (+a ba/6750 8))
+                (<<
+                  (let bound/6751 (load_mut int (+a ba/6750 48))
+                    (checkbound{otree/otree.ml:63,2-44} bound/6751 0)
+                    (+
+                      (*
+                        (+
+                          (seq
+                            (checkbound{otree/otree.ml:63,2-44}
+                              (load_mut int (+a ba/6750 40))
+                              (>>s node_index/5998 1))
+                            node_index/5998)
+                          -1)
+                        bound/6751)
+                      1))
+                  1))
+              -2)
+            (load float64 Pccall/6004)))
+        1)
+    apply_arg/6008 (load val c/5997)
+    apply_arg/6011
+      (alloc{otree/otree.ml:64,35-44;body/body.ml:14,12-33;src/base/core/owl_operator.ml:153,28-41;src/owl/dense/owl_dense_matrix_generic.ml:252,48-58}
+        2048 1 3)
+    Pccall/6012
+      (extcall "caml_ba_get_generic"{otree/otree.ml:64,35-44;body/body.ml:14,12-33;src/base/core/owl_operator.ml:153,28-41;src/owl/dense/owl_dense_matrix_generic.ml:252,16-58;src/owl/dense/owl_dense_ndarray_generic.ml:21,14-30}
+        apply_arg/6008 apply_arg/6011 int,int->val))

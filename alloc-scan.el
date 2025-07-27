@@ -134,7 +134,7 @@ Goes up the directory tree until a dune-project file is found."
         (let ((start 0)
               (match-count 0)
               (last-start -1))
-          (while (and (string-match "(alloc{\\([^}]+\\)} \\([0-9]+\\)" content start)
+          (while (and (string-match "(alloc{\\([^}]+\\)}[ \t\n]*\\([0-9]+\\)\\(?:[ \t\n]+[0-9]+\\)*" content start)
                       (< start (length content))
                       (not (= start last-start))) ; Prevent infinite loops
             (setq last-start start)
@@ -163,6 +163,39 @@ Goes up the directory tree until a dune-project file is found."
                          (= start last-start))
                 (message "WARNING: Infinite loop detected, breaking")
                 (setq start (length content)))))
+          ;; Also look for old format: (alloc number "description" ...)
+          (setq start 0)
+          (setq match-count 0)
+          (setq last-start -1)
+          (while (and (string-match "(alloc[ \t\n]+\\([0-9]+\\)[ \t\n]+\"\\([^\"]+\\)" content start)
+                      (< start (length content))
+                      (not (= start last-start))) ; Prevent infinite loops
+            (setq last-start start)
+            (setq match-count (1+ match-count))
+            (let ((blocks (string-to-number (match-string 1 content)))
+                  (description (match-string 2 content))
+                  (match-start (match-beginning 0))
+                  (match-end-pos (match-end 0)))
+              (when alloc-scan-debug
+                (message "Found old-format allocation %d at pos %d-%d: desc='%s' blocks=%d" 
+                         match-count match-start match-end-pos description blocks))
+              ;; Extract location info from description: [file.ml:line,col--col]
+              (when (string-match "\\[\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)--\\([0-9]+\\)\\]" description)
+                (let ((filepath (match-string 1 description))
+                      (line-num (string-to-number (match-string 2 description)))
+                      (col-start (string-to-number (match-string 3 description)))
+                      (col-end (string-to-number (match-string 4 description))))
+                  (when alloc-scan-debug
+                    (message "  -> %s:%d,%d-%d (%d blocks)" 
+                             filepath line-num col-start col-end blocks))
+                  (push (list filepath line-num col-start col-end blocks) allocations)))
+              (setq start match-end-pos)
+              ;; Safety check: if we're not advancing, break
+              (when (and (> match-count 1000)
+                         (= start last-start))
+                (message "WARNING: Infinite loop detected in old format parsing, breaking")
+                (setq start (length content)))))
+          
           (when alloc-scan-debug
             (message "Total allocations found: %d" (length allocations))))
         (nreverse allocations)))))

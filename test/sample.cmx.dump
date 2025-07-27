@@ -1,0 +1,623 @@
+
+cmm:
+(data)
+(data
+ int 4087
+ "camlDune__exe__Main.2":
+ "camlDune__exe__Main.add_1883_closure":
+ addr "caml_curry3"
+ int 216172782113783815
+ addr "camlDune__exe__Main.add_1883")
+(data
+ int 4087
+ "camlDune__exe__Main.1":
+ "camlDune__exe__Main.add_1170_closure":
+ addr "caml_curry3"
+ int 216172782113783815
+ addr "camlDune__exe__Main.add_1170")
+(data
+ int 1792
+ global "camlDune__exe__Main__version_538"
+ "camlDune__exe__Main__version_538":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__build_info_539"
+ "camlDune__exe__Main__build_info_539":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__Version_info_540"
+ "camlDune__exe__Main__Version_info_540":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__handle_environment_541"
+ "camlDune__exe__Main__handle_environment_541":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__process_args_542"
+ "camlDune__exe__Main__process_args_542":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__add_help_subcommands_543"
+ "camlDune__exe__Main__add_help_subcommands_543":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__dispatch_544"
+ "camlDune__exe__Main__dispatch_544":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__argv_194"
+ "camlDune__exe__Main__argv_194":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__Pccall_195"
+ "camlDune__exe__Main__Pccall_195":
+ int 1)
+(data
+ int 1792
+ global "camlDune__exe__Main__run_inner_196"
+ "camlDune__exe__Main__run_inner_196":
+ int 1)
+(data
+ global "camlDune__exe__Main.gc_roots"
+ "camlDune__exe__Main.gc_roots":
+ addr "camlDune__exe__Main__run_inner_196"
+ addr "camlDune__exe__Main__Pccall_195"
+ addr "camlDune__exe__Main__argv_194"
+ addr "camlDune__exe__Main__dispatch_544"
+ addr "camlDune__exe__Main__add_help_subcommands_543"
+ addr "camlDune__exe__Main__process_args_542"
+ addr "camlDune__exe__Main__handle_environment_541"
+ addr "camlDune__exe__Main__Version_info_540"
+ addr "camlDune__exe__Main__build_info_539"
+ addr "camlDune__exe__Main__version_538"
+ int 0)
+(function{command/src/command.ml:2573,14-1073} camlDune__exe__Main.add_1883
+     (version/1586: val build_info/1585: val unversioned/1584: val
+      env/1583: val)
+ (let
+   (set_of_closures/1588
+      (alloc{command/src/command.ml:2583,16-40} 3319
+        "camlDune__exe__Main.anon_fn[command.ml:2583,16--40]_1897"
+        72057594037927941 version/1586)
+    base/1594
+      (app{command/src/command.ml:2577,8-240} "camlCommand.add_9329"
+        unversioned/1584 "camlCommand__const_immstring_10074" 1
+        "camlCommand__const_block_10078" set_of_closures/1588
+        "camlCommand__const_immstring_10103" val)
+    set_of_closures/1596
+      (alloc{command/src/command.ml:2592,16-43} 3319
+        "camlDune__exe__Main.anon_fn[command.ml:2592,16--43]_1925"
+        72057594037927941 build_info/1585))
+   (alloc{command/src/command.ml:2594,6-15} 1024
+     (app{command/src/command.ml:2586,8-245} "camlCommand.add_9329" base/1594
+       "camlCommand__const_immstring_10114" 1
+       "camlCommand__const_block_10118" set_of_closures/1596
+       "camlCommand__const_immstring_10143" val))))
+
+(function{command/src/command.ml:2573,14-1073} camlDune__exe__Main.add_1170
+     (version/1730: val build_info/1729: val unversioned/1728: val
+      env/1727: val)
+ (let
+   (set_of_closures/1732
+      (alloc{command/src/command.ml:2583,16-40} 3319
+        "camlDune__exe__Main.anon_fn[command.ml:2583,16--40]_1184"
+        72057594037927941 version/1730)
+    base/1738
+      (app{command/src/command.ml:2577,8-240} "camlCommand.add_9329"
+        unversioned/1728 "camlCommand__const_immstring_10074" 1
+        "camlCommand__const_block_10078" set_of_closures/1732
+        "camlCommand__const_immstring_10103" val)
+    set_of_closures/1740
+      (alloc{command/src/command.ml:2592,16-43} 3319
+        "camlDune__exe__Main.anon_fn[command.ml:2592,16--43]_1212"
+        72057594037927941 build_info/1729))
+   (alloc{command/src/command.ml:2594,6-15} 1024
+     (app{command/src/command.ml:2586,8-245} "camlCommand.add_9329" base/1738
+       "camlCommand__const_immstring_10114" 1
+       "camlCommand__const_block_10118" set_of_closures/1740
+       "camlCommand__const_immstring_10143" val))))
+
+(function{command/src/command.ml:2583,16-40} camlDune__exe__Main.anon_fn[command.ml:2583,16--40]_1897
+     (param/1624: val env/1623: val)
+ (if (and (load val (+a env/1623 16)) 1) (load val (+a env/1623 16))
+   (let
+     switch/1626
+       (extcall "caml_obj_tag"{command/src/command.ml:2583,26-39}
+         (load val (+a env/1623 16)) int->val)
+     (catch
+       (switch (>>s switch/1626 1) 
+       case 0:case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 14:case 15:case 16:case 17:case 18:case 19:case 20:case 21:case 22:case 23:case 24:case 25:case 26:case 27:case 28:case 29:case 30:case 31:case 32:case 33:case 34:case 35:case 36:case 37:case 38:case 39:case 40:case 41:case 42:case 43:case 44:case 45:case 46:case 47:case 48:case 49:case 50:case 51:case 52:case 53:case 54:case 55:case 56:case 57:case 58:case 59:case 60:case 61:case 62:case 63:case 64:case 65:case 66:case 67:case 68:case 69:case 70:case 71:case 72:case 73:case 74:case 75:case 76:case 77:case 78:case 79:case 80:case 81:case 82:case 83:case 84:case 85:case 86:case 87:case 88:case 89:case 90:case 91:case 92:case 93:case 94:case 95:case 96:case 97:case 98:case 99:case 100:case 101:case 102:case 103:case 104:case 105:case 106:case 107:case 108:case 109:case 110:case 111:case 112:case 113:case 114:case 115:case 116:case 117:case 118:case 119:case 120:case 121:case 122:case 123:case 124:case 125:case 126:case 127:case 128:case 129:case 130:case 131:case 132:case 133:case 134:case 135:case 136:case 137:case 138:case 139:case 140:case 141:case 142:case 143:case 144:case 145:case 146:case 147:case 148:case 149:case 150:case 151:case 152:case 153:case 154:case 155:case 156:case 157:case 158:case 159:case 160:case 161:case 162:case 163:case 164:case 165:case 166:case 167:case 168:case 169:case 170:case 171:case 172:case 173:case 174:case 175:case 176:case 177:case 178:case 179:case 180:case 181:case 182:case 183:case 184:case 185:case 186:case 187:case 188:case 189:case 190:case 191:case 192:case 193:case 194:case 195:case 196:case 197:case 198:case 199:case 200:case 201:case 202:case 203:case 204:case 205:case 206:case 207:case 208:case 209:case 210:case 211:case 212:case 213:case 214:case 215:case 216:case 217:case 218:case 219:case 220:case 221:case 222:case 223:case 224:case 225:case 226:case 227:case 228:case 229:case 230:case 231:case 232:case 233:case 234:case 235:case 236:case 237:case 238:case 239:case 240:case 241:case 242:case 243:case 245:case 247:case 248:case 249:case 251:case 252:case 253:case 254:case 255:
+         (exit 15)
+       case 250: (load_mut val (load val (+a env/1623 16)))
+       case 246:
+         (let apply_arg/1628 (opaque (load val (+a env/1623 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1628 int->val)
+               1)
+             (raise{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1628 val)))
+       case 244:
+         (let apply_arg/1635 (opaque (load val (+a env/1623 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1635 int->val)
+               1)
+             (raise{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1635 val))))
+     with(15) (load val (+a env/1623 16))))))
+
+(function{command/src/command.ml:2583,16-40} camlDune__exe__Main.anon_fn[command.ml:2583,16--40]_1184
+     (param/1768: val env/1767: val)
+ (if (and (load val (+a env/1767 16)) 1) (load val (+a env/1767 16))
+   (let
+     switch/1770
+       (extcall "caml_obj_tag"{command/src/command.ml:2583,26-39}
+         (load val (+a env/1767 16)) int->val)
+     (catch
+       (switch (>>s switch/1770 1) 
+       case 0:case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 14:case 15:case 16:case 17:case 18:case 19:case 20:case 21:case 22:case 23:case 24:case 25:case 26:case 27:case 28:case 29:case 30:case 31:case 32:case 33:case 34:case 35:case 36:case 37:case 38:case 39:case 40:case 41:case 42:case 43:case 44:case 45:case 46:case 47:case 48:case 49:case 50:case 51:case 52:case 53:case 54:case 55:case 56:case 57:case 58:case 59:case 60:case 61:case 62:case 63:case 64:case 65:case 66:case 67:case 68:case 69:case 70:case 71:case 72:case 73:case 74:case 75:case 76:case 77:case 78:case 79:case 80:case 81:case 82:case 83:case 84:case 85:case 86:case 87:case 88:case 89:case 90:case 91:case 92:case 93:case 94:case 95:case 96:case 97:case 98:case 99:case 100:case 101:case 102:case 103:case 104:case 105:case 106:case 107:case 108:case 109:case 110:case 111:case 112:case 113:case 114:case 115:case 116:case 117:case 118:case 119:case 120:case 121:case 122:case 123:case 124:case 125:case 126:case 127:case 128:case 129:case 130:case 131:case 132:case 133:case 134:case 135:case 136:case 137:case 138:case 139:case 140:case 141:case 142:case 143:case 144:case 145:case 146:case 147:case 148:case 149:case 150:case 151:case 152:case 153:case 154:case 155:case 156:case 157:case 158:case 159:case 160:case 161:case 162:case 163:case 164:case 165:case 166:case 167:case 168:case 169:case 170:case 171:case 172:case 173:case 174:case 175:case 176:case 177:case 178:case 179:case 180:case 181:case 182:case 183:case 184:case 185:case 186:case 187:case 188:case 189:case 190:case 191:case 192:case 193:case 194:case 195:case 196:case 197:case 198:case 199:case 200:case 201:case 202:case 203:case 204:case 205:case 206:case 207:case 208:case 209:case 210:case 211:case 212:case 213:case 214:case 215:case 216:case 217:case 218:case 219:case 220:case 221:case 222:case 223:case 224:case 225:case 226:case 227:case 228:case 229:case 230:case 231:case 232:case 233:case 234:case 235:case 236:case 237:case 238:case 239:case 240:case 241:case 242:case 243:case 245:case 247:case 248:case 249:case 251:case 252:case 253:case 254:case 255:
+         (exit 17)
+       case 250: (load_mut val (load val (+a env/1767 16)))
+       case 246:
+         (let apply_arg/1772 (opaque (load val (+a env/1767 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1772 int->val)
+               1)
+             (raise{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1772 val)))
+       case 244:
+         (let apply_arg/1779 (opaque (load val (+a env/1767 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1779 int->val)
+               1)
+             (raise{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2583,26-39;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1779 val))))
+     with(17) (load val (+a env/1767 16))))))
+
+(function{command/src/command.ml:2592,16-43} camlDune__exe__Main.anon_fn[command.ml:2592,16--43]_1925
+     (param/1605: val env/1604: val)
+ (if (and (load val (+a env/1604 16)) 1) (load val (+a env/1604 16))
+   (let
+     switch/1607
+       (extcall "caml_obj_tag"{command/src/command.ml:2592,26-42}
+         (load val (+a env/1604 16)) int->val)
+     (catch
+       (switch (>>s switch/1607 1) 
+       case 0:case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 14:case 15:case 16:case 17:case 18:case 19:case 20:case 21:case 22:case 23:case 24:case 25:case 26:case 27:case 28:case 29:case 30:case 31:case 32:case 33:case 34:case 35:case 36:case 37:case 38:case 39:case 40:case 41:case 42:case 43:case 44:case 45:case 46:case 47:case 48:case 49:case 50:case 51:case 52:case 53:case 54:case 55:case 56:case 57:case 58:case 59:case 60:case 61:case 62:case 63:case 64:case 65:case 66:case 67:case 68:case 69:case 70:case 71:case 72:case 73:case 74:case 75:case 76:case 77:case 78:case 79:case 80:case 81:case 82:case 83:case 84:case 85:case 86:case 87:case 88:case 89:case 90:case 91:case 92:case 93:case 94:case 95:case 96:case 97:case 98:case 99:case 100:case 101:case 102:case 103:case 104:case 105:case 106:case 107:case 108:case 109:case 110:case 111:case 112:case 113:case 114:case 115:case 116:case 117:case 118:case 119:case 120:case 121:case 122:case 123:case 124:case 125:case 126:case 127:case 128:case 129:case 130:case 131:case 132:case 133:case 134:case 135:case 136:case 137:case 138:case 139:case 140:case 141:case 142:case 143:case 144:case 145:case 146:case 147:case 148:case 149:case 150:case 151:case 152:case 153:case 154:case 155:case 156:case 157:case 158:case 159:case 160:case 161:case 162:case 163:case 164:case 165:case 166:case 167:case 168:case 169:case 170:case 171:case 172:case 173:case 174:case 175:case 176:case 177:case 178:case 179:case 180:case 181:case 182:case 183:case 184:case 185:case 186:case 187:case 188:case 189:case 190:case 191:case 192:case 193:case 194:case 195:case 196:case 197:case 198:case 199:case 200:case 201:case 202:case 203:case 204:case 205:case 206:case 207:case 208:case 209:case 210:case 211:case 212:case 213:case 214:case 215:case 216:case 217:case 218:case 219:case 220:case 221:case 222:case 223:case 224:case 225:case 226:case 227:case 228:case 229:case 230:case 231:case 232:case 233:case 234:case 235:case 236:case 237:case 238:case 239:case 240:case 241:case 242:case 243:case 245:case 247:case 248:case 249:case 251:case 252:case 253:case 254:case 255:
+         (exit 14)
+       case 250: (load_mut val (load val (+a env/1604 16)))
+       case 246:
+         (let apply_arg/1609 (opaque (load val (+a env/1604 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1609 int->val)
+               1)
+             (raise{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1609 val)))
+       case 244:
+         (let apply_arg/1616 (opaque (load val (+a env/1604 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1616 int->val)
+               1)
+             (raise{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1616 val))))
+     with(14) (load val (+a env/1604 16))))))
+
+(function{command/src/command.ml:2592,16-43} camlDune__exe__Main.anon_fn[command.ml:2592,16--43]_1212
+     (param/1749: val env/1748: val)
+ (if (and (load val (+a env/1748 16)) 1) (load val (+a env/1748 16))
+   (let
+     switch/1751
+       (extcall "caml_obj_tag"{command/src/command.ml:2592,26-42}
+         (load val (+a env/1748 16)) int->val)
+     (catch
+       (switch (>>s switch/1751 1) 
+       case 0:case 1:case 2:case 3:case 4:case 5:case 6:case 7:case 8:case 9:case 10:case 11:case 12:case 13:case 14:case 15:case 16:case 17:case 18:case 19:case 20:case 21:case 22:case 23:case 24:case 25:case 26:case 27:case 28:case 29:case 30:case 31:case 32:case 33:case 34:case 35:case 36:case 37:case 38:case 39:case 40:case 41:case 42:case 43:case 44:case 45:case 46:case 47:case 48:case 49:case 50:case 51:case 52:case 53:case 54:case 55:case 56:case 57:case 58:case 59:case 60:case 61:case 62:case 63:case 64:case 65:case 66:case 67:case 68:case 69:case 70:case 71:case 72:case 73:case 74:case 75:case 76:case 77:case 78:case 79:case 80:case 81:case 82:case 83:case 84:case 85:case 86:case 87:case 88:case 89:case 90:case 91:case 92:case 93:case 94:case 95:case 96:case 97:case 98:case 99:case 100:case 101:case 102:case 103:case 104:case 105:case 106:case 107:case 108:case 109:case 110:case 111:case 112:case 113:case 114:case 115:case 116:case 117:case 118:case 119:case 120:case 121:case 122:case 123:case 124:case 125:case 126:case 127:case 128:case 129:case 130:case 131:case 132:case 133:case 134:case 135:case 136:case 137:case 138:case 139:case 140:case 141:case 142:case 143:case 144:case 145:case 146:case 147:case 148:case 149:case 150:case 151:case 152:case 153:case 154:case 155:case 156:case 157:case 158:case 159:case 160:case 161:case 162:case 163:case 164:case 165:case 166:case 167:case 168:case 169:case 170:case 171:case 172:case 173:case 174:case 175:case 176:case 177:case 178:case 179:case 180:case 181:case 182:case 183:case 184:case 185:case 186:case 187:case 188:case 189:case 190:case 191:case 192:case 193:case 194:case 195:case 196:case 197:case 198:case 199:case 200:case 201:case 202:case 203:case 204:case 205:case 206:case 207:case 208:case 209:case 210:case 211:case 212:case 213:case 214:case 215:case 216:case 217:case 218:case 219:case 220:case 221:case 222:case 223:case 224:case 225:case 226:case 227:case 228:case 229:case 230:case 231:case 232:case 233:case 234:case 235:case 236:case 237:case 238:case 239:case 240:case 241:case 242:case 243:case 245:case 247:case 248:case 249:case 251:case 252:case 253:case 254:case 255:
+         (exit 16)
+       case 250: (load_mut val (load val (+a env/1748 16)))
+       case 246:
+         (let apply_arg/1753 (opaque (load val (+a env/1748 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1753 int->val)
+               1)
+             (raise{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1753 val)))
+       case 244:
+         (let apply_arg/1760 (opaque (load val (+a env/1748 16)))
+           (if
+             (!=
+               (extcall "caml_lazy_update_to_forcing"{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:72,8-40}
+                 apply_arg/1760 int->val)
+               1)
+             (raise{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:75,9-24}
+               "camlCamlinternalLazy__Pmakeblock_175")
+             (app{command/src/command.ml:2592,26-42;camlinternalLazy.ml:78,27-67;camlinternalLazy.ml:74,9-27}
+               "camlCamlinternalLazy.do_force_block_20" apply_arg/1760 val))))
+     with(16) (load val (+a env/1748 16))))))
+
+(data int 768 global "camlDune__exe__Main" "camlDune__exe__Main":)
+(data
+ int 2818
+ global "camlDune__exe__Main__Pmakeblock_2102"
+ "camlDune__exe__Main__Pmakeblock_2102":
+ int 1
+ addr "camlBase__Exn__const_immstring_553")
+(data
+ int 2816
+ global "camlDune__exe__Main__simplify_fv_526"
+ "camlDune__exe__Main__simplify_fv_526":
+ addr "camlCommand__Pmakeblock_18152"
+ int 3)
+(data
+ int 2816
+ global "camlDune__exe__Main__simplify_fv_525"
+ "camlDune__exe__Main__simplify_fv_525":
+ addr "camlCommand__Pmakeblock_18152"
+ int 1)
+(function camlDune__exe__Main.entry ()
+ (extcall "caml_initialize" "camlDune__exe__Main__run_inner_196"
+   (load_mut val (+a (load_mut val "camlCommand_unix") 24)) ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__Pccall_195"
+   (extcall "caml_sys_argv"{bin/main.ml:1,9-44;command/src/command.ml:3359,27-42}
+     1 int->val)
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__argv_194"
+   (app{bin/main.ml:1,9-44;command/src/command.ml:3359,13-42}
+     "camlStdlib__Array.to_list_651"
+     (load_mut val "camlDune__exe__Main__Pccall_195") val)
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__dispatch_544"
+   (load_mut val (+a (load_mut val "camlDune__exe__Main__run_inner_196") 56))
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__add_help_subcommands_543"
+   (load_mut val (+a (load_mut val "camlDune__exe__Main__run_inner_196") 48))
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__process_args_542"
+   (load_mut val (+a (load_mut val "camlDune__exe__Main__run_inner_196") 40))
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__handle_environment_541"
+   (load_mut val (+a (load_mut val "camlDune__exe__Main__run_inner_196") 32))
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__Version_info_540"
+   (load_mut val (+a (load_mut val "camlDune__exe__Main__run_inner_196") 24))
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__build_info_539"
+   (load val (+a (load_mut val "camlDune__exe__Main__Version_info_540") 48))
+   ->unit)
+ (extcall "caml_initialize" "camlDune__exe__Main__version_538"
+   (load val (+a (load_mut val "camlDune__exe__Main__Version_info_540") 40))
+   ->unit)
+ (if (!= (load_mut val "camlCommand__raise_instead_of_exit_18154") 1)
+   (try
+     (let
+       (t/1657 (load_mut val "camlAlloc_scan")
+        unversioned/1658 (load_mut val t/1657)
+        set_of_closures/1659 "camlDune__exe__Main.1"
+        unversioned/1661 (load_mut val t/1657)
+        t/1664
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3382,14-53;command/src/command.ml:2573,14-1073}
+            "camlDune__exe__Main.add_1170"
+            (load_mut val "camlDune__exe__Main__version_538")
+            (load_mut val "camlDune__exe__Main__build_info_539")
+            unversioned/1661 set_of_closures/1659 val)
+        t/1666
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3383,14-36}
+            "camlCommand.add_help_subcommands_13399" t/1664
+            (load_mut val "camlDune__exe__Main__add_help_subcommands_543")
+            val)
+        *match*/1669
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3385,22-48}
+            "camlCommand.handle_environment_13093" t/1666
+            (load_mut val "camlDune__exe__Main__argv_194")
+            (load_mut val "camlDune__exe__Main__handle_environment_541") val)
+        apply_arg/1670 (load val (+a *match*/1669 8))
+        apply_arg/1671 (load val *match*/1669)
+        *match*/1673
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3386,45-68}
+            "camlCommand.process_args_13186" apply_arg/1671 apply_arg/1670
+            (load_mut val "camlDune__exe__Main__process_args_542") val)
+        args/1674 (load val (+a *match*/1673 8)))
+       (try
+         (let
+           (apply_arg/1717 (load val (+a *match*/1673 16))
+            apply_arg/1718 (load val *match*/1673))
+           (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3388,8-270}
+             "camlCommand.dispatch_13507" t/1666
+             (load_mut val (+a "camlUniv_map" 24)) 1 apply_arg/1718 args/1674
+             apply_arg/1717 (load_mut val "camlDune__exe__Main__version_538")
+             (load_mut val "camlDune__exe__Main__build_info_539") 1
+             "camlCommand.anon_fn[command.ml:3361,30--35]_14164_closure" 1
+             (load_mut val "camlDune__exe__Main__dispatch_544") unit))
+       with exn/1675
+         (if (== (load val exn/1675) "camlCommand__Pmakeblock_18137")
+           (if
+             (!=
+               (if (and args/1674 1) 1
+                 (let switcher/1791 (load unsigned int8 (+a args/1674 -8))
+                   (if switcher/1791 3
+                     (let apply_arg/1713 (load val (+a args/1674 8))
+                       (if (and apply_arg/1713 1) 1
+                         (let
+                           switcher/1790
+                             (load unsigned int8 (+a apply_arg/1713 -8))
+                           (if switcher/1790 3
+                             (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3402,11-40;command/src/command.ml:1361,24-45;command/src/command.ml:1361,24-45}
+                               "camlCommand.ends_in_complete_4982"
+                               (load val (+a apply_arg/1713 8)) val))))))))
+               1)
+             (if
+               (!= (load_mut val "camlCommand__raise_instead_of_exit_18154")
+                 1)
+               (seq
+                 (raise{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3403,13-19;command/src/command.ml:19,34-64}
+                   "camlDune__exe__Main__simplify_fv_525")
+                 [])
+               (let
+                 (sequence/1703
+                    (let
+                      fun/1786
+                        (load_mut val
+                          (load_mut val "camlStdlib__Pmakeblock_1863"))
+                      (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3403,13-19;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:575,2-31}
+                        (load_mut int fun/1786) 1 fun/1786 val))
+                  sequence/1707
+                    (let
+                      fun/1787
+                        (load_mut val
+                          (load_mut val "camlStdlib__exit_function_1866"))
+                      (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3403,13-19;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:576,2-31}
+                        (load_mut int fun/1787) 1 fun/1787 val)))
+                 (extcall "caml_sys_exit"{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3403,13-19;command/src/command.ml:19,70-88;stdlib.ml:580,2-18}
+                   1 int->unit)))
+             (let
+               sequence/1684
+                 (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3405,10-27}
+                   "camlStdlib.prerr_endline_1338" (load val (+a exn/1675 8))
+                   val)
+               (if
+                 (!=
+                   (load_mut val "camlCommand__raise_instead_of_exit_18154")
+                   1)
+                 (seq
+                   (raise{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3406,10-16;command/src/command.ml:19,34-64}
+                     "camlDune__exe__Main__simplify_fv_526")
+                   [])
+                 (let
+                   (sequence/1690
+                      (let
+                        fun/1788
+                          (load_mut val
+                            (load_mut val "camlStdlib__Pmakeblock_1863"))
+                        (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3406,10-16;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:575,2-31}
+                          (load_mut int fun/1788) 1 fun/1788 val))
+                    sequence/1694
+                      (let
+                        fun/1789
+                          (load_mut val
+                            (load_mut val "camlStdlib__exit_function_1866"))
+                        (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3406,10-16;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:576,2-31}
+                          (load_mut int fun/1789) 1 fun/1789 val)))
+                   (extcall "caml_sys_exit"{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16;command/src/command.ml:3406,10-16;command/src/command.ml:19,70-88;stdlib.ml:580,2-18}
+                     3 int->unit)))))
+           (seq
+             (reraise{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:26,12-16}
+               exn/1675)
+             []))))
+   with exn/1642
+     (let
+       simplify_fv/1645
+         (+ (<< (== (load val exn/1642) "camlCommand__Pmakeblock_18152") 1)
+           1)
+       (catch
+         (if (!= simplify_fv/1645 1)
+           (if (!= (load val (+a exn/1642 8)) 1) (exit 5)
+             (let
+               (apply_arg/1651
+                  (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:27,62-73}
+                    "camlSexplib0__Sexp_conv.sexp_of_exn_740" exn/1642 val)
+                apply_arg/1655
+                  (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:27,47-74;src/out_channel.ml:80,25-51;src/out_channel.ml:77,15-38}
+                    "camlSexplib0__Sexp.to_string_hum_1283" 1 apply_arg/1651
+                    val))
+               (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:27,47-74;src/out_channel.ml:80,25-51;src/out_channel.ml:73,2-126}
+                 "camlStdio__Out_channel.fprint_endline_377"
+                 (load_mut val (+a "camlStdlib" 304)) apply_arg/1655 unit)))
+           (exit 5))
+       with(5)
+         (reraise{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810}
+           exn/1642)
+         [])))
+   (try
+     (let
+       (t/1516 (load_mut val "camlAlloc_scan")
+        unversioned/1517 (load_mut val t/1516)
+        set_of_closures/1518 "camlDune__exe__Main.2"
+        unversioned/1520 (load_mut val t/1516)
+        t/1523
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3382,14-53;command/src/command.ml:2573,14-1073}
+            "camlDune__exe__Main.add_1883"
+            (load_mut val "camlDune__exe__Main__version_538")
+            (load_mut val "camlDune__exe__Main__build_info_539")
+            unversioned/1520 set_of_closures/1518 val)
+        t/1525
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3383,14-36}
+            "camlCommand.add_help_subcommands_13399" t/1523
+            (load_mut val "camlDune__exe__Main__add_help_subcommands_543")
+            val)
+        *match*/1528
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3385,22-48}
+            "camlCommand.handle_environment_13093" t/1525
+            (load_mut val "camlDune__exe__Main__argv_194")
+            (load_mut val "camlDune__exe__Main__handle_environment_541") val)
+        apply_arg/1529 (load val (+a *match*/1528 8))
+        apply_arg/1530 (load val *match*/1528)
+        *match*/1532
+          (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3386,45-68}
+            "camlCommand.process_args_13186" apply_arg/1530 apply_arg/1529
+            (load_mut val "camlDune__exe__Main__process_args_542") val)
+        args/1533 (load val (+a *match*/1532 8)))
+       (try
+         (let
+           (apply_arg/1573 (load val (+a *match*/1532 16))
+            apply_arg/1574 (load val *match*/1532))
+           (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3388,8-270}
+             "camlCommand.dispatch_13507" t/1525
+             (load_mut val (+a "camlUniv_map" 24)) 1 apply_arg/1574 args/1533
+             apply_arg/1573 (load_mut val "camlDune__exe__Main__version_538")
+             (load_mut val "camlDune__exe__Main__build_info_539") 1
+             "camlCommand.anon_fn[command.ml:3361,30--35]_14164_closure" 1
+             (load_mut val "camlDune__exe__Main__dispatch_544") unit))
+       with exn/1534
+         (if (== (load val exn/1534) "camlCommand__Pmakeblock_18137")
+           (if
+             (!=
+               (if (and args/1533 1) 1
+                 (let switcher/1800 (load unsigned int8 (+a args/1533 -8))
+                   (if switcher/1800 3
+                     (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3402,11-40;command/src/command.ml:1361,24-45}
+                       "camlCommand.ends_in_complete_4982"
+                       (load val (+a args/1533 8)) val))))
+               1)
+             (if
+               (!= (load_mut val "camlCommand__raise_instead_of_exit_18154")
+                 1)
+               (seq
+                 (raise{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3403,13-19;command/src/command.ml:19,34-64}
+                   "camlDune__exe__Main__simplify_fv_525")
+                 [])
+               (let
+                 (sequence/1562
+                    (let
+                      fun/1796
+                        (load_mut val
+                          (load_mut val "camlStdlib__Pmakeblock_1863"))
+                      (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3403,13-19;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:575,2-31}
+                        (load_mut int fun/1796) 1 fun/1796 val))
+                  sequence/1566
+                    (let
+                      fun/1797
+                        (load_mut val
+                          (load_mut val "camlStdlib__exit_function_1866"))
+                      (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3403,13-19;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:576,2-31}
+                        (load_mut int fun/1797) 1 fun/1797 val)))
+                 (extcall "caml_sys_exit"{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3403,13-19;command/src/command.ml:19,70-88;stdlib.ml:580,2-18}
+                   1 int->unit)))
+             (let
+               sequence/1543
+                 (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3405,10-27}
+                   "camlStdlib.prerr_endline_1338" (load val (+a exn/1534 8))
+                   val)
+               (if
+                 (!=
+                   (load_mut val "camlCommand__raise_instead_of_exit_18154")
+                   1)
+                 (seq
+                   (raise{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3406,10-16;command/src/command.ml:19,34-64}
+                     "camlDune__exe__Main__simplify_fv_526")
+                   [])
+                 (let
+                   (sequence/1549
+                      (let
+                        fun/1798
+                          (load_mut val
+                            (load_mut val "camlStdlib__Pmakeblock_1863"))
+                        (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3406,10-16;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:575,2-31}
+                          (load_mut int fun/1798) 1 fun/1798 val))
+                    sequence/1553
+                      (let
+                        fun/1799
+                          (load_mut val
+                            (load_mut val "camlStdlib__exit_function_1866"))
+                        (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3406,10-16;command/src/command.ml:19,70-88;stdlib.ml:579,2-15;stdlib.ml:576,2-31}
+                          (load_mut int fun/1799) 1 fun/1799 val)))
+                   (extcall "caml_sys_exit"{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10;command/src/command.ml:3406,10-16;command/src/command.ml:19,70-88;stdlib.ml:580,2-18}
+                     3 int->unit)))))
+           (seq
+             (reraise{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:126,6-10}
+               exn/1534)
+             []))))
+   with exc/1482
+     (let
+       (Pccall/1484
+          (extcall "caml_get_exception_raw_backtrace"{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:128,24-60;printexc.ml:108,0-88}
+            1 int->val)
+        sequence/1485
+          (try
+            (let
+              (sequence/1512
+                 (let
+                   fun/1792
+                     (load_mut val
+                       (load_mut val "camlStdlib__Pmakeblock_1863"))
+                   (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:135,10-30;stdlib.ml:575,2-31}
+                     (load_mut int fun/1792) 1 fun/1792 val))
+               fun/1793
+                 (load_mut val
+                   (load_mut val "camlStdlib__exit_function_1866")))
+              (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:135,10-30;stdlib.ml:576,2-31}
+                (load_mut int fun/1793) 1 fun/1793 val))
+          with exn/1507 1)
+        sequence/1486
+          (try
+            (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:137,9-47}
+              "camlBase__Exn.print_with_backtrace_443" exc/1482 Pccall/1484
+              val)
+          with exn/1497
+            (try
+              (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:140,10-89;printf.ml:32,18-36;printf.ml:27,21-43;printf.ml:20,2-63;camlinternalFormat.ml:1563,4-54}
+                "camlCamlinternalFormat.make_printf_5097"
+                "camlStdlib__Printf.anon_fn[printf.ml:20,14--48]_461_closure"
+                "camlDune__exe__Main__Pmakeblock_2102"
+                "camlBase__Exn__const_block_554" val)
+            with exn/1498 1))
+        sequence/1491
+          (let
+            fun/1794
+              (load_mut val (load_mut val "camlStdlib__Pmakeblock_1863"))
+            (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:143,4-10;stdlib.ml:579,2-15;stdlib.ml:575,2-31}
+              (load_mut int fun/1794) 1 fun/1794 val))
+        sequence/1495
+          (let
+            fun/1795
+              (load_mut val (load_mut val "camlStdlib__exit_function_1866"))
+            (app{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:143,4-10;stdlib.ml:579,2-15;stdlib.ml:576,2-31}
+              (load_mut int fun/1795) 1 fun/1795 val)))
+       (extcall "caml_sys_exit"{bin/main.ml:1,9-44;command/src/command.ml:3381,4-810;command/src/command.ml:28,11-41;src/exn.ml:146,33-77;src/exn.ml:143,4-10;stdlib.ml:580,2-18}
+         3 int->unit))))
+ 1)
+
+(data)
