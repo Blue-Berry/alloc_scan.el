@@ -103,108 +103,133 @@ This applies to box borders, underlines, and backgrounds."
 
 (defun alloc-scan--find-dune-project (filepath)
   "Find the dune-project file starting from FILEPATH.
-Goes up the directory tree until a dune-project file is found."
-  (let ((dir (file-name-directory (expand-file-name filepath))))
-    (while (and dir
-                (not (file-exists-p (expand-file-name "dune-project" dir)))
-                (not (string= dir (file-name-directory (directory-file-name dir)))))
-      (setq dir (file-name-directory (directory-file-name dir))))
-    (when (and dir (file-exists-p (expand-file-name "dune-project" dir)))
-      dir)))
+Traverses up the directory tree until a dune-project file is found.
+Returns the directory containing dune-project, or nil if not found."
+  (when (and filepath (or (file-exists-p filepath) (file-directory-p filepath)))
+    (let ((dir (file-name-directory (expand-file-name filepath))))
+      (while (and dir
+                  (not (file-exists-p (expand-file-name "dune-project" dir)))
+                  (not (string= dir (file-name-directory (directory-file-name dir)))))
+        (setq dir (file-name-directory (directory-file-name dir))))
+      (when (and dir (file-exists-p (expand-file-name "dune-project" dir)))
+        dir))))
 
 (defun alloc-scan--find-build-files (project-root pattern)
-  "Find files matching PATTERN in _build directories under PROJECT-ROOT."
-  (let ((build-dir (expand-file-name "_build" project-root))
-        files)
-    (when (file-directory-p build-dir)
-      (setq files (directory-files-recursively build-dir pattern t)))
-    files))
+  "Find files matching PATTERN in _build directories under PROJECT-ROOT.
+Returns a list of absolute file paths, or empty list if none found."
+  (when (and project-root (file-directory-p project-root))
+    (let ((build-dir (expand-file-name "_build" project-root)))
+      (when (file-directory-p build-dir)
+        (condition-case err
+            (directory-files-recursively build-dir pattern t)
+          (error
+           (when alloc-scan-debug
+             (message "Error scanning build directory %s: %s" build-dir (error-message-string err)))
+           nil))))))
 
 ;;; Parsing functions
 
+(defun alloc-scan--parse-curly-brace-allocations (content)
+  "Parse curly brace format allocations from CONTENT.
+Returns list of (filepath line col-start col-end blocks)."
+  (let ((allocations nil)
+        (start 0)
+        (match-count 0)
+        (last-start -1))
+    (while (and (string-match "(alloc{\\([^}]+\\)}[ \t\n]*\\([0-9]+\\)\\(?:[ \t\n]+[0-9]+\\)*" content start)
+                (< start (length content))
+                (not (= start last-start))) ; Prevent infinite loops
+      (setq last-start start)
+      (setq match-count (1+ match-count))
+      (let ((locations-str (match-string 1 content))
+            (blocks (string-to-number (match-string 2 content)))
+            (match-start (match-beginning 0))
+            (match-end-pos (match-end 0)))
+        (when alloc-scan-debug
+          (message "Found allocation %d at pos %d-%d: locations='%s' blocks=%d" 
+                   match-count match-start match-end-pos locations-str blocks))
+        ;; Parse locations: filepath:line,col_start-col_end;...
+        (dolist (loc-str (split-string locations-str ";"))
+          (when (string-match "\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\)" loc-str)
+            (let ((filepath (match-string 1 loc-str))
+                  (line-num (string-to-number (match-string 2 loc-str)))
+                  (col-start (string-to-number (match-string 3 loc-str)))
+                  (col-end (string-to-number (match-string 4 loc-str))))
+              (when alloc-scan-debug
+                (message "  -> %s:%d,%d-%d (%d blocks)" 
+                         filepath line-num col-start col-end blocks))
+              (push (list filepath line-num col-start col-end blocks) allocations))))
+        (setq start match-end-pos)
+        ;; Safety check: if we're not advancing, break
+        (when (and (> match-count 1000)
+                   (= start last-start))
+          (message "WARNING: Infinite loop detected, breaking")
+          (setq start (length content)))))
+    (nreverse allocations)))
+
+(defun alloc-scan--parse-description-allocations (content)
+  "Parse description format allocations from CONTENT.
+Returns list of (filepath line col-start col-end blocks)."
+  (let ((allocations nil)
+        (start 0)
+        (match-count 0)
+        (last-start -1))
+    (while (and (string-match "(alloc[ \t\n]+\\([0-9]+\\)[ \t\n]+\"\\([^\"]+\\)" content start)
+                (< start (length content))
+                (not (= start last-start))) ; Prevent infinite loops
+      (setq last-start start)
+      (setq match-count (1+ match-count))
+      (let ((blocks (string-to-number (match-string 1 content)))
+            (description (match-string 2 content))
+            (match-start (match-beginning 0))
+            (match-end-pos (match-end 0)))
+        (when alloc-scan-debug
+          (message "Found description-format allocation %d at pos %d-%d: desc='%s' blocks=%d" 
+                   match-count match-start match-end-pos description blocks))
+        ;; Extract location info from description: [file.ml:line,col--col]
+        (when (string-match "\\[\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)--\\([0-9]+\\)\\]" description)
+          (let ((filepath (match-string 1 description))
+                (line-num (string-to-number (match-string 2 description)))
+                (col-start (string-to-number (match-string 3 description)))
+                (col-end (string-to-number (match-string 4 description))))
+            (when alloc-scan-debug
+              (message "  -> %s:%d,%d-%d (%d blocks)" 
+                       filepath line-num col-start col-end blocks))
+            (push (list filepath line-num col-start col-end blocks) allocations)))
+        (setq start match-end-pos)
+        ;; Safety check: if we're not advancing, break
+        (when (and (> match-count 1000)
+                   (= start last-start))
+          (message "WARNING: Infinite loop detected in description format parsing, breaking")
+          (setq start (length content)))))
+    (nreverse allocations)))
 
 (defun alloc-scan--parse-dump-file (file)
-  "Parse allocation information from dump FILE."
-  (when (file-readable-p file)
+  "Parse allocation information from dump FILE.
+Returns list of (filepath line col-start col-end blocks)."
+  (when (and file (file-readable-p file))
     (with-temp-buffer
       (insert-file-contents file)
-      (let ((content (buffer-string))
-            allocations)
-        ;; Find all allocation patterns with regex that handles whitespace
-        (let ((start 0)
-              (match-count 0)
-              (last-start -1))
-          (while (and (string-match "(alloc{\\([^}]+\\)}[ \t\n]*\\([0-9]+\\)\\(?:[ \t\n]+[0-9]+\\)*" content start)
-                      (< start (length content))
-                      (not (= start last-start))) ; Prevent infinite loops
-            (setq last-start start)
-            (setq match-count (1+ match-count))
-            (let ((locations-str (match-string 1 content))
-                  (blocks (string-to-number (match-string 2 content)))
-                  (match-start (match-beginning 0))
-                  (match-end-pos (match-end 0)))
-              (when alloc-scan-debug
-                (message "Found allocation %d at pos %d-%d: locations='%s' blocks=%d" 
-                         match-count match-start match-end-pos locations-str blocks))
-              ;; Parse locations: filepath:line,col_start-col_end;...
-              (dolist (loc-str (split-string locations-str ";"))
-                (when (string-match "\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\)" loc-str)
-                  (let ((filepath (match-string 1 loc-str))
-                        (line-num (string-to-number (match-string 2 loc-str)))
-                        (col-start (string-to-number (match-string 3 loc-str)))
-                        (col-end (string-to-number (match-string 4 loc-str))))
-                    (when alloc-scan-debug
-                      (message "  -> %s:%d,%d-%d (%d blocks)" 
-                               filepath line-num col-start col-end blocks))
-                    (push (list filepath line-num col-start col-end blocks) allocations))))
-              (setq start match-end-pos)
-              ;; Safety check: if we're not advancing, break
-              (when (and (> match-count 1000)
-                         (= start last-start))
-                (message "WARNING: Infinite loop detected, breaking")
-                (setq start (length content)))))
-          ;; Also look for old format: (alloc number "description" ...)
-          (setq start 0)
-          (setq match-count 0)
-          (setq last-start -1)
-          (while (and (string-match "(alloc[ \t\n]+\\([0-9]+\\)[ \t\n]+\"\\([^\"]+\\)" content start)
-                      (< start (length content))
-                      (not (= start last-start))) ; Prevent infinite loops
-            (setq last-start start)
-            (setq match-count (1+ match-count))
-            (let ((blocks (string-to-number (match-string 1 content)))
-                  (description (match-string 2 content))
-                  (match-start (match-beginning 0))
-                  (match-end-pos (match-end 0)))
-              (when alloc-scan-debug
-                (message "Found old-format allocation %d at pos %d-%d: desc='%s' blocks=%d" 
-                         match-count match-start match-end-pos description blocks))
-              ;; Extract location info from description: [file.ml:line,col--col]
-              (when (string-match "\\[\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)--\\([0-9]+\\)\\]" description)
-                (let ((filepath (match-string 1 description))
-                      (line-num (string-to-number (match-string 2 description)))
-                      (col-start (string-to-number (match-string 3 description)))
-                      (col-end (string-to-number (match-string 4 description))))
-                  (when alloc-scan-debug
-                    (message "  -> %s:%d,%d-%d (%d blocks)" 
-                             filepath line-num col-start col-end blocks))
-                  (push (list filepath line-num col-start col-end blocks) allocations)))
-              (setq start match-end-pos)
-              ;; Safety check: if we're not advancing, break
-              (when (and (> match-count 1000)
-                         (= start last-start))
-                (message "WARNING: Infinite loop detected in old format parsing, breaking")
-                (setq start (length content)))))
-          
-          (when alloc-scan-debug
-            (message "Total allocations found: %d" (length allocations))))
-        (nreverse allocations)))))
+      (let ((content (buffer-string)))
+        (when alloc-scan-debug
+          (message "Parsing file: %s (%d chars)" file (length content)))
+        ;; Parse both formats and combine results
+        (let ((curly-allocations (alloc-scan--parse-curly-brace-allocations content))
+              (desc-allocations (alloc-scan--parse-description-allocations content)))
+          (let ((total-allocations (append curly-allocations desc-allocations)))
+            (when alloc-scan-debug
+              (message "Total allocations found: %d (curly: %d, description: %d)" 
+                       (length total-allocations)
+                       (length curly-allocations)
+                       (length desc-allocations)))
+            total-allocations))))))
 
 
 ;;; Highlighting functions
 
 (defun alloc-scan--get-highlight-face ()
-  "Get the face to use for highlighting based on user preferences."
+  "Get the face to use for highlighting based on user preferences.
+Returns a face specification based on `alloc-scan-highlight-style'."
   (pcase alloc-scan-highlight-style
     ('box `(:box (:line-width 1 :color ,alloc-scan-highlight-color :style nil)))
     ('underline `(:underline (:color ,alloc-scan-highlight-color :style line)))
@@ -214,7 +239,8 @@ Goes up the directory tree until a dune-project file is found."
     (_ 'alloc-scan-highlight-face)))
 
 (defun alloc-scan--create-overlay (line col-start col-end blocks)
-  "Create an overlay for allocation at LINE from COL-START to COL-END with BLOCKS."
+  "Create an overlay for allocation at LINE from COL-START to COL-END with BLOCKS.
+Returns the created overlay, or nil if positions are invalid."
   (when-let* ((positions (alloc-scan--calculate-positions line col-start col-end)))
     (let ((overlay (make-overlay (car positions) (cdr positions))))
       (alloc-scan--configure-overlay overlay blocks)
@@ -249,13 +275,16 @@ Returns cons (START-POS . END-POS) or nil if invalid."
                    (propertize text 'face alloc-scan-virtual-text-face)))))
 
 (defun alloc-scan--clear-overlays ()
-  "Clear all allocation overlays in the current buffer."
+  "Remove all allocation overlays in the current buffer.
+Cleans up both the overlays and the tracking list."
   (dolist (overlay alloc-scan--overlays)
     (delete-overlay overlay))
   (setq alloc-scan--overlays nil))
 
 (defun alloc-scan--highlight-allocations (allocations)
-  "Highlight ALLOCATIONS in the current buffer."
+  "Highlight ALLOCATIONS in the current buffer.
+Filters allocations to only those relevant to the current file.
+Clears existing overlays before applying new ones."
   (alloc-scan--clear-overlays)
   (when-let* ((current-file (buffer-file-name)))
     (let ((relevant-allocations (alloc-scan--filter-allocations-for-file 
@@ -265,7 +294,9 @@ Returns cons (START-POS . END-POS) or nil if invalid."
           (alloc-scan--create-overlay line col-start col-end blocks))))))
 
 (defun alloc-scan--filter-allocations-for-file (allocations current-file)
-  "Filter ALLOCATIONS to only those relevant to CURRENT-FILE."
+  "Filter ALLOCATIONS to only those relevant to CURRENT-FILE.
+Matches based on file path suffix or basename.
+Returns filtered list of allocations."
   (cl-remove-if-not
    (lambda (alloc)
      (let ((filepath (car alloc)))
