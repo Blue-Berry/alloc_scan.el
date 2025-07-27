@@ -40,12 +40,12 @@ If using `use-package`:
 ### Commands
 
 - `M-x alloc-scan` - Scan current buffer for allocations
-  - Opens Dired to select a .cmx.dump file
+  - Uses minibuffer completion to select a .cmx.dump file
   - Highlights allocation points in the current buffer
   
 - `M-x alloc-scan-file` - Scan a specific file for allocations
   - Prompts for a source file to scan
-  - Opens Dired to select a .cmx.dump file
+  - Uses minibuffer completion to select a .cmx.dump file
   - Opens the source file and highlights allocations
   
 - `M-x alloc-scan-clear` - Clear all allocation highlights in the current buffer
@@ -198,10 +198,24 @@ M-x alloc-scan RET
 ## How It Works
 
 1. **File Discovery**: The plugin automatically searches for .cmx.dump files in your project's `_build` directory
-2. **Dired Integration**: Opens Dired with the most likely dump file pre-selected for user confirmation
+2. **File Selection**: Uses minibuffer completion to select from available dump files
 3. **Parsing**: Parses allocation information from the dump file using regex patterns
 4. **Highlighting**: Creates overlays in the source buffer to highlight allocation points
 5. **Virtual Text**: Shows allocation details (block count and tag) as overlay text
+
+## Development and Testing
+
+The plugin includes comprehensive tests located in the `test/` directory:
+
+- `test-alloc-scan.el` - Core functionality tests
+- `test-parse.el` - Parsing logic tests
+- `comprehensive-test.el` - Integration tests
+
+To run tests:
+
+```bash
+emacs --batch --load test/test-alloc-scan.el
+```
 
 ## Requirements
 

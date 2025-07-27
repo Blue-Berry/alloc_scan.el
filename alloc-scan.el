@@ -33,7 +33,7 @@
 ;; Features:
 ;; - Highlights allocation points in OCaml source code
 ;; - Shows allocation details (block count, tag) as virtual text
-;; - Dired integration for selecting .cmx.dump files
+;; - Minibuffer integration for selecting .cmx.dump files
 ;; - Customizable highlighting faces
 ;;
 ;; Usage:
@@ -43,7 +43,6 @@
 
 ;;; Code:
 
-(require 'dired)
 (require 'cl-lib)
 
 ;;; Customization
@@ -100,7 +99,7 @@ This applies to box borders, underlines, and backgrounds."
 
 (make-variable-buffer-local 'alloc-scan--overlays)
 
-;;; Utility functions
+;;; Project discovery functions
 
 (defun alloc-scan--find-dune-project (filepath)
   "Find the dune-project file starting from FILEPATH.
@@ -120,6 +119,9 @@ Goes up the directory tree until a dune-project file is found."
     (when (file-directory-p build-dir)
       (setq files (directory-files-recursively build-dir pattern t)))
     files))
+
+;;; Parsing functions
+
 
 (defun alloc-scan--parse-dump-file (file)
   "Parse allocation information from dump FILE."
@@ -165,51 +167,53 @@ Goes up the directory tree until a dune-project file is found."
             (message "Total allocations found: %d" (length allocations))))
         (nreverse allocations)))))
 
+
 ;;; Highlighting functions
 
 (defun alloc-scan--get-highlight-face ()
   "Get the face to use for highlighting based on user preferences."
-  (cond
-   ((eq alloc-scan-highlight-style 'box)
-    `(:box (:line-width 1 :color ,alloc-scan-highlight-color :style nil)))
-   
-   ((eq alloc-scan-highlight-style 'underline)
-    `(:underline (:color ,alloc-scan-highlight-color :style line)))
-   
-   ((eq alloc-scan-highlight-style 'background)
-    `(:background ,alloc-scan-highlight-color))
-   
-   ((eq alloc-scan-highlight-style 'bold)
-    `(:weight bold :foreground ,alloc-scan-highlight-color))
-   
-   ((eq alloc-scan-highlight-style 'custom)
-    'alloc-scan-highlight-face)
-   
-   (t
-    'alloc-scan-highlight-face)))
+  (pcase alloc-scan-highlight-style
+    ('box `(:box (:line-width 1 :color ,alloc-scan-highlight-color :style nil)))
+    ('underline `(:underline (:color ,alloc-scan-highlight-color :style line)))
+    ('background `(:background ,alloc-scan-highlight-color))
+    ('bold `(:weight bold :foreground ,alloc-scan-highlight-color))
+    ('custom 'alloc-scan-highlight-face)
+    (_ 'alloc-scan-highlight-face)))
 
 (defun alloc-scan--create-overlay (line col-start col-end blocks)
   "Create an overlay for allocation at LINE from COL-START to COL-END with BLOCKS."
+  (when-let* ((positions (alloc-scan--calculate-positions line col-start col-end)))
+    (let ((overlay (make-overlay (car positions) (cdr positions))))
+      (alloc-scan--configure-overlay overlay blocks)
+      (push overlay alloc-scan--overlays)
+      overlay)))
+
+(defun alloc-scan--calculate-positions (line col-start col-end)
+  "Calculate buffer positions for LINE, COL-START, and COL-END.
+Returns cons (START-POS . END-POS) or nil if invalid."
   (save-excursion
     (goto-char (point-min))
-    (forward-line (1- line))
-    (let ((line-start (point))
-          (line-end (line-end-position)))
-      (when (and (>= col-end col-start)
-                 (<= col-start (- line-end line-start)))
-        (let* ((start-pos (+ line-start col-start))
-               (end-pos (min (+ line-start col-end) line-end))
-               (overlay (make-overlay start-pos end-pos)))
-          (overlay-put overlay 'face (alloc-scan--get-highlight-face))
-          (when alloc-scan-show-virtual-text
-            (let ((num-blocks (/ blocks 1024))
-                  (tag (% blocks 1024)))
-              (overlay-put overlay 'after-string
-                           (propertize (format " [Blocks: %d; Tag: %d]" num-blocks tag)
-                                       'face alloc-scan-virtual-text-face))))
-          (overlay-put overlay 'alloc-scan t)
-          (push overlay alloc-scan--overlays)
-          overlay)))))
+    (when (= (forward-line (1- line)) 0)
+      (let* ((line-start (point))
+             (line-end (line-end-position))
+             (line-length (- line-end line-start)))
+        (when (and (>= col-end col-start)
+                   (<= col-start line-length))
+          (let ((start-pos (+ line-start col-start))
+                (end-pos (min (+ line-start col-end) line-end)))
+            (cons start-pos end-pos)))))))
+
+(defun alloc-scan--configure-overlay (overlay blocks)
+  "Configure OVERLAY with face and virtual text for BLOCKS."
+  (overlay-put overlay 'face (alloc-scan--get-highlight-face))
+  (overlay-put overlay 'alloc-scan t)
+  
+  (when alloc-scan-show-virtual-text
+    (let* ((num-blocks (/ blocks 1024))
+           (tag (% blocks 1024))
+           (text (format " [Blocks: %d; Tag: %d]" num-blocks tag)))
+      (overlay-put overlay 'after-string
+                   (propertize text 'face alloc-scan-virtual-text-face)))))
 
 (defun alloc-scan--clear-overlays ()
   "Clear all allocation overlays in the current buffer."
@@ -220,15 +224,22 @@ Goes up the directory tree until a dune-project file is found."
 (defun alloc-scan--highlight-allocations (allocations)
   "Highlight ALLOCATIONS in the current buffer."
   (alloc-scan--clear-overlays)
-  (let ((current-file (buffer-file-name)))
-    (when current-file
-      (dolist (alloc allocations)
+  (when-let* ((current-file (buffer-file-name)))
+    (let ((relevant-allocations (alloc-scan--filter-allocations-for-file 
+                                allocations current-file)))
+      (dolist (alloc relevant-allocations)
         (cl-destructuring-bind (filepath line col-start col-end blocks) alloc
-          ;; Check if this allocation is for the current file
-          (when (or (string-suffix-p filepath current-file)
-                    (string-suffix-p (file-name-nondirectory filepath)
-                                     (file-name-nondirectory current-file)))
-            (alloc-scan--create-overlay line col-start col-end blocks)))))))
+          (alloc-scan--create-overlay line col-start col-end blocks))))))
+
+(defun alloc-scan--filter-allocations-for-file (allocations current-file)
+  "Filter ALLOCATIONS to only those relevant to CURRENT-FILE."
+  (cl-remove-if-not
+   (lambda (alloc)
+     (let ((filepath (car alloc)))
+       (or (string-suffix-p filepath current-file)
+           (string-suffix-p (file-name-nondirectory filepath)
+                            (file-name-nondirectory current-file)))))
+   allocations))
 
 ;;; File selection
 
