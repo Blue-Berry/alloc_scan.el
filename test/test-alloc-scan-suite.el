@@ -233,16 +233,46 @@
 ;;; Statistics tests
 
 (deftest analyze-allocation-statistics
-  "Analyze allocation data and return statistics"
-  (let ((allocations '(("file1.ml" 10 0 10 1024)
-                       ("file1.ml" 20 0 15 2048)
-                       ("file2.ml" 30 0 20 512))))
+  "Analyze allocation data and return statistics using CMM decoding"
+  (let ((allocations '(("file1.ml" 10 0 10 1024)   ; 1 word tuple
+                       ("file1.ml" 20 0 15 2048)   ; 2 word tuple
+                       ("file2.ml" 30 0 20 512))))  ; 0 word tuple
     (let ((stats (alloc-scan--analyze-allocations allocations)))
       (assert-equal 3 (alist-get 'total-allocations stats) "Total count")
-      (assert-equal 3584 (alist-get 'total-blocks stats) "Total blocks")
+      (assert-equal 3 (alist-get 'total-words stats) "Total words (1+2+0)")
       (assert-equal 2 (alist-get 'files-with-allocations stats) "File count")
       (assert-true (alist-get 'size-distribution stats) "Should have size distribution")
+      (assert-true (alist-get 'allocation-types stats) "Should have allocation types")
       stats)))
+
+;;; CMM decoding tests
+
+(deftest decode-tuple-allocation-number
+  "Decode tuple allocation number (2048 = 2 << 10 + 0)"
+  (let ((result (alloc-scan--decode-allocation-number 2048)))
+    (assert-equal '(2 . 0) result "Should decode to 2 words, tag 0")
+    result))
+
+(deftest decode-string-allocation-number
+  "Decode string allocation number with tag 252"
+  (let ((alloc-number (+ (* 3 1024) 252)))  ; 3 words, string tag
+    (let ((result (alloc-scan--decode-allocation-number alloc-number)))
+      (assert-equal '(3 . 252) result "Should decode to 3 words, tag 252")
+      result)))
+
+(deftest allocation-type-name-mapping
+  "Map allocation tags to human-readable names"
+  (assert-equal "tuple/record" (alloc-scan--allocation-type-name 0) "Tag 0 mapping")
+  (assert-equal "closure" (alloc-scan--allocation-type-name 247) "Tag 247 mapping")
+  (assert-equal "string" (alloc-scan--allocation-type-name 252) "Tag 252 mapping")
+  (assert-equal "variant-42" (alloc-scan--allocation-type-name 42) "Variant tag mapping")
+  t)
+
+(deftest format-allocation-info-display
+  "Format allocation information for display"
+  (let ((result (alloc-scan--format-allocation-info 2048)))
+    (assert-true (string-match-p "tuple/record.*2 words" result) "Should contain type and size")
+    result))
 
 ;;; Error handling tests
 
@@ -282,6 +312,10 @@
   (test-clear-all-overlays)
   (test-cache-file-results)
   (test-analyze-allocation-statistics)
+  (test-decode-tuple-allocation-number)
+  (test-decode-string-allocation-number)
+  (test-allocation-type-name-mapping)
+  (test-format-allocation-info-display)
   (test-handle-invalid-dump-file)
   (test-handle-malformed-allocation-data)
   

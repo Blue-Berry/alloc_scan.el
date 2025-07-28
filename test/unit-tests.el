@@ -143,16 +143,16 @@ Expected: nil"
 
 (defun test-analyze-allocations-basic ()
   "Test basic allocation analysis.
-Expected: Statistics with total-allocations=2, files-with-allocations=2"
-  (let ((allocations '(("file1.ml" 10 0 10 1024)
-                       ("file2.ml" 20 0 15 2048)))
+Expected: Statistics with total-allocations=2, files-with-allocations=2, total-words=3"
+  (let ((allocations '(("file1.ml" 10 0 10 1024)   ; 1 word tuple
+                       ("file2.ml" 20 0 15 2048)))  ; 2 word tuple
         (expected-total 2)
         (expected-files 2)
-        (expected-blocks 3072))
+        (expected-words 3))  ; 1 + 2 = 3 words
     (let ((result (alloc-scan--analyze-allocations allocations)))
       (if (and (= (alist-get 'total-allocations result) expected-total)
                (= (alist-get 'files-with-allocations result) expected-files)
-               (= (alist-get 'total-blocks result) expected-blocks))
+               (= (alist-get 'total-words result) expected-words))
           (message "✓ PASS: analyze-allocations-basic")
         (message "✗ FAIL: analyze-allocations-basic - got %S" result))
       result)))

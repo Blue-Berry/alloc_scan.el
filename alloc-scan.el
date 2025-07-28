@@ -540,6 +540,56 @@ Uses caching to avoid re-parsing unchanged files."
           allocations))))
 
 
+;;; CMM allocation decoding functions
+
+(defun alloc-scan--decode-allocation-number (alloc-number)
+  "Decode CMM allocation number into size and tag components.
+Based on the encoding: allocation_number = (size << 10) + tag
+Returns (size-in-words . tag) or nil if invalid."
+  (when (and alloc-number (numberp alloc-number) (>= alloc-number 0))
+    (let ((size-words (ash alloc-number -10))  ; Right shift by 10 bits
+          (tag (logand alloc-number 1023)))    ; Bottom 10 bits (mask 0x3FF)
+      (cons size-words tag))))
+
+(defun alloc-scan--allocation-type-name (tag)
+  "Return human-readable name for allocation TAG."
+  (cond
+   ((= tag 0) "tuple/record")
+   ((and (>= tag 1) (<= tag 245)) (format "variant-%d" tag))
+   ((= tag 246) "lazy")
+   ((= tag 247) "closure")
+   ((= tag 248) "object")
+   ((= tag 249) "infix")
+   ((= tag 250) "forward")
+   ((= tag 252) "string")
+   ((= tag 253) "float")
+   ((= tag 254) "float-array")
+   ((= tag 255) "custom")
+   (t (format "tag-%d" tag))))
+
+(defun alloc-scan--allocation-memory-info (size-words)
+  "Calculate memory usage information from SIZE-WORDS.
+Returns (total-words . size-bytes) including header word.
+All heap-allocated blocks have headers regardless of type."
+  (let* ((word-size 8)  ; OCaml words are 8 bytes on 64-bit, 4 bytes on 32-bit
+         (total-words (+ size-words 1))  ; All blocks have headers
+         (size-bytes (* total-words word-size)))
+    (cons total-words size-bytes)))
+
+(defun alloc-scan--format-allocation-info (alloc-number)
+  "Format allocation information for display.
+Returns formatted string with decoded allocation details."
+  (if-let* ((decoded (alloc-scan--decode-allocation-number alloc-number))
+            (size-words (car decoded))
+            (tag (cdr decoded))
+            (type-name (alloc-scan--allocation-type-name tag))
+            (memory-info (alloc-scan--allocation-memory-info size-words))
+            (total-words (car memory-info))
+            (size-bytes (cdr memory-info)))
+      (format " [%s: %d words (%d bytes)]" 
+              type-name size-words size-bytes)
+    (format " [Raw: %s]" alloc-number)))
+
 ;;; Highlighting functions
 
 (defun alloc-scan--get-highlight-face ()
@@ -583,9 +633,7 @@ Returns cons (START-POS . END-POS) or nil if invalid."
   (overlay-put overlay 'alloc-scan t)
   
   (when alloc-scan-show-virtual-text
-    (let* ((num-blocks (/ blocks 1024))
-           (tag (% blocks 1024))
-           (text (format " [Blocks: %d; Tag: %d]" num-blocks tag)))
+    (let ((text (alloc-scan--format-allocation-info blocks)))
       (overlay-put overlay 'after-string
                    (propertize text 'face alloc-scan-virtual-text-face)))))
 
@@ -670,66 +718,100 @@ Returns filtered list of allocations."
 
 (defun alloc-scan--analyze-allocations (allocations)
   "Analyze ALLOCATIONS and return summary statistics.
-Returns an alist with statistics."
+Returns an alist with statistics using decoded CMM allocation numbers."
   (when allocations
     (let ((total-count (length allocations))
-          (total-blocks 0)
+          (total-words 0)
+          (total-bytes 0)
           (files-map (make-hash-table :test 'equal))
+          (type-buckets (make-hash-table :test 'equal))
           (size-buckets '((small . 0) (medium . 0) (large . 0) (huge . 0))))
       
       ;; Process each allocation
       (dolist (alloc allocations)
-        (let ((filepath (nth 0 alloc))
-              (blocks (nth 4 alloc)))
-          ;; Count total blocks
-          (setq total-blocks (+ total-blocks blocks))
+        (let* ((filepath (nth 0 alloc))
+               (alloc-number (nth 4 alloc))
+               (decoded (alloc-scan--decode-allocation-number alloc-number)))
           
-          ;; Count per file
-          (let ((file-count (gethash filepath files-map 0)))
-            (puthash filepath (1+ file-count) files-map))
-          
-          ;; Categorize by size
-          (cond 
-           ((< blocks 1024) (cl-incf (alist-get 'small size-buckets)))
-           ((< blocks 4096) (cl-incf (alist-get 'medium size-buckets)))
-           ((< blocks 16384) (cl-incf (alist-get 'large size-buckets)))
-           (t (cl-incf (alist-get 'huge size-buckets))))))
+          (when decoded
+            (let* ((size-words (car decoded))
+                   (tag (cdr decoded))
+                   (type-name (alloc-scan--allocation-type-name tag))
+                   (memory-info (alloc-scan--allocation-memory-info size-words))
+                   (size-bytes (cdr memory-info)))
+              
+              ;; Count total memory usage
+              (setq total-words (+ total-words size-words))
+              (setq total-bytes (+ total-bytes size-bytes))
+              
+              ;; Count per file
+              (let ((file-count (gethash filepath files-map 0)))
+                (puthash filepath (1+ file-count) files-map))
+              
+              ;; Count by allocation type
+              (let ((type-count (gethash type-name type-buckets 0)))
+                (puthash type-name (1+ type-count) type-buckets))
+              
+              ;; Categorize by size (in words)
+              (cond 
+               ((< size-words 2) (cl-incf (alist-get 'small size-buckets)))
+               ((< size-words 8) (cl-incf (alist-get 'medium size-buckets)))
+               ((< size-words 32) (cl-incf (alist-get 'large size-buckets)))
+               (t (cl-incf (alist-get 'huge size-buckets))))))))
       
       ;; Convert files map to sorted list
       (let ((files-list nil))
         (maphash (lambda (file count) (push (cons file count) files-list)) files-map)
         (setq files-list (sort files-list (lambda (a b) (> (cdr a) (cdr b)))))
         
-        ;; Return analysis
-        `((total-allocations . ,total-count)
-          (total-blocks . ,total-blocks)
-          (average-blocks . ,(if (> total-count 0) (/ total-blocks total-count) 0))
-          (files-with-allocations . ,(hash-table-count files-map))
-          (top-files . ,(seq-take files-list 5))
-          (size-distribution . ,size-buckets))))))
+        ;; Convert type buckets to sorted list
+        (let ((types-list nil))
+          (maphash (lambda (type count) (push (cons type count) types-list)) type-buckets)
+          (setq types-list (sort types-list (lambda (a b) (> (cdr a) (cdr b)))))
+          
+          ;; Return analysis
+          `((total-allocations . ,total-count)
+            (total-words . ,total-words)
+            (total-bytes . ,total-bytes)
+            (average-words . ,(if (> total-count 0) (/ total-words total-count) 0))
+            (files-with-allocations . ,(hash-table-count files-map))
+            (top-files . ,(seq-take files-list 5))
+            (allocation-types . ,(seq-take types-list 10))
+            (size-distribution . ,size-buckets)))))))
 
 (defun alloc-scan--format-statistics (stats)
-  "Format STATS for display."
+  "Format STATS for display using decoded CMM allocation information."
   (when stats
     (let ((total-allocs (alist-get 'total-allocations stats))
-          (total-blocks (alist-get 'total-blocks stats))
-          (avg-blocks (alist-get 'average-blocks stats))
+          (total-words (alist-get 'total-words stats))
+          (total-bytes (alist-get 'total-bytes stats))
+          (avg-words (alist-get 'average-words stats))
           (file-count (alist-get 'files-with-allocations stats))
           (top-files (alist-get 'top-files stats))
+          (alloc-types (alist-get 'allocation-types stats))
           (size-dist (alist-get 'size-distribution stats)))
       
       (concat 
        (format "=== Allocation Summary ===\n")
        (format "Total allocations: %d\n" total-allocs)
-       (format "Total blocks: %d (%.2f KB)\n" total-blocks (/ total-blocks 1024.0))
-       (format "Average blocks per allocation: %.1f\n" avg-blocks)
+       (format "Total memory: %d words (%.2f KB)\n" total-words (/ total-bytes 1024.0))
+       (format "Average size: %.1f words per allocation\n" avg-words)
        (format "Files with allocations: %d\n\n" file-count)
        
+       (format "=== Allocation Types ===\n")
+       (if alloc-types
+           (mapconcat (lambda (entry)
+                        (format "%-15s: %d allocations"
+                                (car entry) (cdr entry)))
+                      alloc-types "\n")
+         "No type information available")
+       "\n\n"
+       
        (format "=== Size Distribution ===\n")
-       (format "Small (< 1KB):    %d allocations\n" (alist-get 'small size-dist))
-       (format "Medium (1-4KB):   %d allocations\n" (alist-get 'medium size-dist))
-       (format "Large (4-16KB):   %d allocations\n" (alist-get 'large size-dist))
-       (format "Huge (> 16KB):    %d allocations\n\n" (alist-get 'huge size-dist))
+       (format "Small (< 2 words):   %d allocations\n" (alist-get 'small size-dist))
+       (format "Medium (2-8 words):  %d allocations\n" (alist-get 'medium size-dist))
+       (format "Large (8-32 words):  %d allocations\n" (alist-get 'large size-dist))
+       (format "Huge (> 32 words):   %d allocations\n\n" (alist-get 'huge size-dist))
        
        (when top-files
          (concat
