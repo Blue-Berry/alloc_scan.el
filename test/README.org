@@ -1,0 +1,171 @@
+#+TITLE: Testing alloc-scan.el
+#+AUTHOR: Liam
+#+DATE: [2025-01-28]
+
+This directory contains comprehensive tests for the alloc-scan plugin.
+
+* Test Files
+
+** Main Test Suites
+
+- *=test-alloc-scan-suite.el=* - Comprehensive integration test suite with structured assertions
+- *=unit-tests.el=* - Focused unit tests for individual functions
+
+** Sample Data
+
+- *=sample.cmx.dump=* - Sample OCaml compiler dump file for testing
+- *=otree-sample.cmx.dump=* - Additional sample with multi-location allocations
+
+** Legacy Test Files (for reference)
+
+- =test-alloc-scan.el= - Original comprehensive test file
+- =comprehensive-test.el= - Integration tests
+- =baseline-test.el= - Baseline functionality tests
+- Other =*.el= files - Various specific test scenarios
+
+* Running Tests
+
+** Method 1: Load and Run in Batch Mode
+
+#+begin_src bash
+# Run the comprehensive test suite
+emacs --batch --load test/test-alloc-scan-suite.el
+
+# Run unit tests
+emacs --batch --load test/unit-tests.el
+
+# Run specific legacy tests
+emacs --batch --load test/baseline-test.el
+#+end_src
+
+** Method 2: Interactive Mode
+
+1. Open Emacs
+2. Load the plugin: =M-x load-file RET ../alloc-scan.el RET=
+3. Load test file: =M-x load-file RET test-alloc-scan-suite.el RET=
+4. Run tests: =M-x run-test-suite RET=
+
+** Method 3: From Plugin Directory
+
+#+begin_src bash
+# From the main alloc-scan.el directory
+emacs --batch --eval "(progn (load-file \"alloc-scan.el\") (load-file \"test/test-alloc-scan-suite.el\"))"
+#+end_src
+
+* Test Structure
+
+** Comprehensive Test Suite (=test-alloc-scan-suite.el=)
+
+Uses a structured testing framework with:
+- =deftest= macro for defining tests with expected outcomes
+- Assertion functions (=assert-equal=, =assert-true=, =assert-count=)
+- Automatic result collection and reporting
+- Clear test names and descriptions
+
+*Test Categories:*
+- Core parsing tests (curly brace format, description format)
+- File matching and filtering
+- Buffer position calculations
+- Overlay creation and management
+- Highlighting integration
+- Caching functionality
+- Statistics analysis
+- Error handling
+
+** Unit Tests (=unit-tests.el=)
+
+Focused tests for individual functions with:
+- Clear expected outputs documented in function docstrings
+- Simple pass/fail reporting
+- Direct function testing without complex setup
+
+*Functions Tested:*
+- =alloc-scan--parse-curly-brace-allocations=
+- =alloc-scan--parse-description-allocations=
+- =alloc-scan--filter-allocations-for-file=
+- =alloc-scan--calculate-positions=
+- =alloc-scan--analyze-allocations=
+- =alloc-scan--get-highlight-face=
+- =alloc-scan--cache-key=
+
+* Expected Test Results
+
+** Comprehensive Test Suite
+
+When all tests pass, you should see:
+#+begin_example
+=== Test Results Summary ===
+Total tests: 16
+Passed: 16
+Failed: 0
+Success rate: 100.0%
+#+end_example
+
+** Unit Tests
+
+When all tests pass, you should see messages like:
+#+begin_example
+✓ PASS: parse-single-curly-allocation
+✓ PASS: parse-empty-content
+✓ PASS: filter-by-exact-path
+✓ PASS: calculate-positions-valid
+...
+#+end_example
+
+* Test Data Requirements
+
+The tests expect:
+1. =sample.cmx.dump= to contain exactly 6 allocations
+2. The main plugin file =../alloc-scan.el= to be present
+3. Emacs 25.1 or later for proper overlay and face support
+
+* Adding New Tests
+
+** For Comprehensive Suite
+
+#+begin_src elisp
+(deftest your-test-name
+  "Description of what the test verifies"
+  (let ((input "test input")
+        (expected "expected output"))
+    (let ((result (your-function input)))
+      (assert-equal expected result "Meaningful error message")
+      result)))
+#+end_src
+
+** For Unit Tests
+
+#+begin_src elisp
+(defun test-your-function ()
+  "Test your function with specific input.
+Expected: Specific expected output description"
+  (let ((input "test input")
+        (expected "expected output"))
+    (let ((result (your-function input)))
+      (if (equal result expected)
+          (message "✓ PASS: test-your-function")
+        (message "✗ FAIL: test-your-function - expected %S, got %S" expected result))
+      result)))
+#+end_src
+
+* Debugging Failed Tests
+
+1. Run tests with debug enabled: =(setq alloc-scan-debug t)=
+2. Check that sample files exist and are readable
+3. Verify Emacs version compatibility
+4. Run individual test functions to isolate issues
+5. Check error messages for specific assertion failures
+
+* Continuous Integration
+
+For automated testing, use:
+
+#+begin_src bash
+#!/bin/bash
+# test.sh
+set -e
+echo "Running alloc-scan tests..."
+emacs --batch --load test/test-alloc-scan-suite.el 2>&1 | tee test-output.log
+emacs --batch --load test/unit-tests.el 2>&1 | tee -a test-output.log
+echo "Tests completed. Check test-output.log for results."
+#+end_src
