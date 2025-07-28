@@ -215,3 +215,6 @@ ocamlopt -dump-cmm your_file.ml
 #+end_src
 
 The plugin will look for =.cmx.dump= files in your project's =_build= directory structure.
+
+* TODO
+ * Add jump to cmm dump file
