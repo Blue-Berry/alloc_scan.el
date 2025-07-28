@@ -31,13 +31,13 @@
 ;; information as overlays in the buffer.
 ;;
 ;; Features:
-;; - Highlights allocation points in OCaml source code
-;; - Shows allocation details (block count, tag) as virtual text
+;; - Highlights allocation points in OCaml source code with CMM decoding
+;; - Shows allocation details (type, size, memory usage) as virtual text
 ;; - Minibuffer integration for selecting .cmx.dump files
-;; - Customizable highlighting faces
+;; - Customizable highlighting faces and styles
 ;; - Automatic refresh when dump files change (file watching or polling)
-;; - Caching for improved performance
-;; - Summary statistics and analysis
+;; - Intelligent caching for improved performance
+;; - Comprehensive statistics and memory analysis
 ;;
 ;; Usage:
 ;; M-x alloc-scan                   - Scan current buffer for allocations
@@ -51,7 +51,9 @@
 
 (require 'cl-lib)
 
-;;; Customization
+;;; ============================================================================
+;;; Customization and Configuration
+;;; ============================================================================
 
 (defgroup alloc-scan nil
   "OCaml allocation scanner."
@@ -93,41 +95,6 @@ This applies to box borders, underlines, and backgrounds."
   :type 'face
   :group 'alloc-scan)
 
-(defcustom alloc-scan-debug nil
-  "Enable debug messages for allocation parsing."
-  :type 'boolean
-  :group 'alloc-scan)
-
-;;; Internal variables
-
-(defvar alloc-scan--overlays nil
-  "List of overlays created by alloc-scan.")
-
-(make-variable-buffer-local 'alloc-scan--overlays)
-
-(defvar alloc-scan--cache (make-hash-table :test 'equal)
-  "Cache for parsed dump files.
-Key: (file-path . file-mtime)
-Value: list of allocations")
-
-(defcustom alloc-scan-cache-size 10
-  "Maximum number of dump files to cache."
-  :type 'integer
-  :group 'alloc-scan)
-
-(defvar alloc-scan--cache-order nil
-  "List tracking cache access order for LRU eviction.")
-
-(defvar alloc-scan--file-watchers (make-hash-table :test 'equal)
-  "Hash table tracking file watchers.
-Key: dump file path
-Value: file-notify descriptor")
-
-(defvar alloc-scan--watched-buffers (make-hash-table :test 'equal)  
-  "Hash table tracking which buffers are watching which dump files.
-Key: buffer
-Value: dump file path")
-
 (defcustom alloc-scan-auto-refresh t
   "Whether to automatically refresh when dump files change."
   :type 'boolean
@@ -138,409 +105,45 @@ Value: dump file path")
   :type 'number
   :group 'alloc-scan)
 
+(defcustom alloc-scan-cache-size 10
+  "Maximum number of dump files to cache."
+  :type 'integer
+  :group 'alloc-scan)
+
+(defcustom alloc-scan-debug nil
+  "Enable debug messages for allocation parsing."
+  :type 'boolean
+  :group 'alloc-scan)
+
+;;; ============================================================================
+;;; Internal Variables and State
+;;; ============================================================================
+
+(defvar alloc-scan--overlays nil
+  "List of overlays created by alloc-scan.")
+(make-variable-buffer-local 'alloc-scan--overlays)
+
+(defvar alloc-scan--cache (make-hash-table :test 'equal)
+  "Cache for parsed dump files. Key: (file-path . file-mtime), Value: allocations")
+
+(defvar alloc-scan--cache-order nil
+  "List tracking cache access order for LRU eviction.")
+
+(defvar alloc-scan--file-watchers (make-hash-table :test 'equal)
+  "Hash table tracking file watchers. Key: dump file path, Value: file-notify descriptor")
+
+(defvar alloc-scan--watched-buffers (make-hash-table :test 'equal)
+  "Hash table tracking which buffers are watching which dump files.")
+
 (defvar alloc-scan--polling-timer nil
   "Timer for polling file changes when file-notify is unavailable.")
 
 (defvar alloc-scan--file-mtimes (make-hash-table :test 'equal)
   "Hash table tracking file modification times for polling.")
 
-;;; Project discovery functions
-
-(defun alloc-scan--find-dune-project (filepath)
-  "Find the dune-project file starting from FILEPATH.
-Traverses up the directory tree until a dune-project file is found.
-Returns the directory containing dune-project, or nil if not found."
-  (when (and filepath (or (file-exists-p filepath) (file-directory-p filepath)))
-    (let ((dir (file-name-directory (expand-file-name filepath))))
-      (while (and dir
-                  (not (file-exists-p (expand-file-name "dune-project" dir)))
-                  (not (string= dir (file-name-directory (directory-file-name dir)))))
-        (setq dir (file-name-directory (directory-file-name dir))))
-      (when (and dir (file-exists-p (expand-file-name "dune-project" dir)))
-        dir))))
-
-(defun alloc-scan--find-build-files (project-root pattern)
-  "Find files matching PATTERN in _build directories under PROJECT-ROOT.
-Returns a list of absolute file paths, or empty list if none found."
-  (when (and project-root (file-directory-p project-root))
-    (let ((build-dir (expand-file-name "_build" project-root)))
-      (when (file-directory-p build-dir)
-        (condition-case err
-            (directory-files-recursively build-dir pattern t)
-          (error
-           (when alloc-scan-debug
-             (message "Error scanning build directory %s: %s" build-dir (error-message-string err)))
-           nil))))))
-
-;;; Cache management functions
-
-(defun alloc-scan--cache-key (file)
-  "Generate cache key for FILE based on path and modification time."
-  (when (and file (file-exists-p file))
-    (cons file (file-attribute-modification-time (file-attributes file)))))
-
-(defun alloc-scan--cache-get (file)
-  "Get cached allocations for FILE, or nil if not cached or stale."
-  (let ((key (alloc-scan--cache-key file)))
-    (when key
-      (let ((cached (gethash key alloc-scan--cache)))
-        (when cached
-          ;; Update access order for LRU
-          (setq alloc-scan--cache-order 
-                (cons key (delete key alloc-scan--cache-order)))
-          (when alloc-scan-debug
-            (message "Cache hit for %s" file))
-          cached)))))
-
-(defun alloc-scan--cache-put (file allocations)
-  "Cache ALLOCATIONS for FILE."
-  (let ((key (alloc-scan--cache-key file)))
-    (when key
-      ;; Evict oldest entries if cache is full
-      (while (>= (hash-table-count alloc-scan--cache) alloc-scan-cache-size)
-        (let ((oldest-key (car (last alloc-scan--cache-order))))
-          (when oldest-key
-            (remhash oldest-key alloc-scan--cache)
-            (setq alloc-scan--cache-order (butlast alloc-scan--cache-order)))))
-      
-      ;; Add new entry
-      (puthash key allocations alloc-scan--cache)
-      (setq alloc-scan--cache-order 
-            (cons key (delete key alloc-scan--cache-order)))
-      (when alloc-scan-debug
-        (message "Cached %d allocations for %s" (length allocations) file)))))
-
-(defun alloc-scan--cache-clear ()
-  "Clear the allocation cache."
-  (interactive)
-  (clrhash alloc-scan--cache)
-  (setq alloc-scan--cache-order nil)
-  (when alloc-scan-debug
-    (message "Allocation cache cleared")))
-
-;;; File watching functions
-
-(defun alloc-scan--file-changed-callback (event)
-  "Handle file change EVENT for watched dump files."
-  (let ((file (nth 2 event))
-        (change-type (nth 1 event)))
-    (when alloc-scan-debug
-      (message "File change detected: %s (%s)" file change-type))
-    
-    (when (and alloc-scan-auto-refresh
-               (member change-type '(created changed)))
-      ;; Invalidate cache for this file
-      (let ((keys-to-remove nil))
-        (maphash (lambda (key _)
-                   (when (and (consp key) (string= (car key) file))
-                     (push key keys-to-remove)))
-                 alloc-scan--cache)
-        (dolist (key keys-to-remove)
-          (remhash key alloc-scan--cache)
-          (setq alloc-scan--cache-order (delete key alloc-scan--cache-order))))
-      
-      ;; Refresh all buffers watching this file
-      (maphash (lambda (buffer watched-file)
-                 (when (and (string= watched-file file)
-                            (buffer-live-p buffer))
-                   (with-current-buffer buffer
-                     (when (and (bound-and-true-p alloc-scan--overlays)
-                                alloc-scan--overlays)
-                       (when alloc-scan-debug
-                         (message "Auto-refreshing buffer %s" (buffer-name)))
-                       (let ((allocations (alloc-scan--parse-dump-file file)))
-                         (when allocations
-                           (alloc-scan--highlight-allocations allocations)
-                           (message "Auto-refreshed %d allocations from %s" 
-                                   (length allocations) 
-                                   (file-name-nondirectory file))))))))
-               alloc-scan--watched-buffers))))
-
-(defun alloc-scan--start-watching-file (file buffer)
-  "Start watching FILE for changes, associating it with BUFFER."
-  (when (file-exists-p file)
-    ;; Try file-notify first if available
-    (if (and (fboundp 'file-notify-add-watch)
-             (not (gethash file alloc-scan--file-watchers)))
-        (condition-case err
-            (let ((descriptor (file-notify-add-watch 
-                              file
-                              '(change)
-                              #'alloc-scan--file-changed-callback)))
-              (puthash file descriptor alloc-scan--file-watchers)
-              (when alloc-scan-debug
-                (message "Started file-notify watching: %s" file)))
-          (error
-           (when alloc-scan-debug
-             (message "File-notify failed for %s: %s" file (error-message-string err)))
-           ;; Fall back to polling
-           (alloc-scan--start-polling-timer)))
-      ;; Use polling if file-notify is not available
-      (progn
-        (when alloc-scan-debug
-          (message "Using polling for file watching: %s" file))
-        (alloc-scan--start-polling-timer)))
-    
-    ;; Store initial modification time for polling
-    (let ((mtime (file-attribute-modification-time (file-attributes file))))
-      (when mtime
-        (puthash file mtime alloc-scan--file-mtimes))))
-  
-  ;; Associate buffer with file
-  (puthash buffer file alloc-scan--watched-buffers))
-
-(defun alloc-scan--stop-watching-file (file)
-  "Stop watching FILE for changes."
-  (when-let* ((descriptor (gethash file alloc-scan--file-watchers)))
-    (condition-case err
-        (when (fboundp 'file-notify-rm-watch)
-          (file-notify-rm-watch descriptor)
-          (remhash file alloc-scan--file-watchers)
-          (when alloc-scan-debug
-            (message "Stopped watching file: %s" file)))
-      (error
-       (when alloc-scan-debug
-         (message "Failed to stop watching file %s: %s" file (error-message-string err)))))))
-
-(defun alloc-scan--cleanup-file-watchers ()
-  "Clean up file watchers for dead buffers."
-  (let ((buffers-to-remove nil))
-    ;; Find dead buffers
-    (maphash (lambda (buffer _)
-               (unless (buffer-live-p buffer)
-                 (push buffer buffers-to-remove)))
-             alloc-scan--watched-buffers)
-    
-    ;; Remove dead buffer associations
-    (dolist (buffer buffers-to-remove)
-      (remhash buffer alloc-scan--watched-buffers))
-    
-    ;; Stop watching files that no longer have live buffers
-    (let ((files-to-stop-watching nil))
-      (maphash (lambda (file _)
-                 (let ((has-live-buffer nil))
-                   (maphash (lambda (buffer watched-file)
-                              (when (and (string= watched-file file)
-                                        (buffer-live-p buffer))
-                                (setq has-live-buffer t)))
-                            alloc-scan--watched-buffers)
-                   (unless has-live-buffer
-                     (push file files-to-stop-watching))))
-               alloc-scan--file-watchers)
-      
-      (dolist (file files-to-stop-watching)
-        (alloc-scan--stop-watching-file file)))
-    
-    ;; Stop polling if no files are being watched
-    (when (= (hash-table-count alloc-scan--watched-buffers) 0)
-      (alloc-scan--stop-polling-timer))))
-
-(defun alloc-scan--stop-watching-buffer (buffer)
-  "Stop watching files for BUFFER."
-  (when-let* ((watched-file (gethash buffer alloc-scan--watched-buffers)))
-    (remhash buffer alloc-scan--watched-buffers)
-    (alloc-scan--cleanup-file-watchers)))
-
-(defun alloc-scan--polling-check-files ()
-  "Check all watched files for changes (polling mode)."
-  (when alloc-scan-auto-refresh
-    (let ((files-to-check (make-hash-table :test 'equal)))
-      ;; Collect unique files being watched
-      (maphash (lambda (buffer file)
-                 (when (buffer-live-p buffer)
-                   (puthash file t files-to-check)))
-               alloc-scan--watched-buffers)
-      
-      ;; Check each file for changes
-      (maphash (lambda (file _)
-                 (when (file-exists-p file)
-                   (let* ((current-mtime (file-attribute-modification-time (file-attributes file)))
-                          (stored-mtime (gethash file alloc-scan--file-mtimes)))
-                     (when (and current-mtime
-                                (or (not stored-mtime)
-                                    (time-less-p stored-mtime current-mtime)))
-                       (puthash file current-mtime alloc-scan--file-mtimes)
-                       (when stored-mtime ; Don't trigger on first check
-                         (alloc-scan--file-changed-callback `(nil changed ,file)))))))
-               files-to-check))))
-
-(defun alloc-scan--start-polling-timer ()
-  "Start the polling timer if needed."
-  (unless alloc-scan--polling-timer
-    (setq alloc-scan--polling-timer
-          (run-at-time alloc-scan-polling-interval 
-                       alloc-scan-polling-interval 
-                       #'alloc-scan--polling-check-files))
-    (when alloc-scan-debug
-      (message "Started polling timer (interval: %s seconds)" alloc-scan-polling-interval))))
-
-(defun alloc-scan--stop-polling-timer ()
-  "Stop the polling timer."
-  (when alloc-scan--polling-timer
-    (cancel-timer alloc-scan--polling-timer)
-    (setq alloc-scan--polling-timer nil)
-    (when alloc-scan-debug
-      (message "Stopped polling timer"))))
-
-;;;###autoload
-(defun alloc-scan-toggle-auto-refresh ()
-  "Toggle automatic refresh when dump files change."
-  (interactive)
-  (setq alloc-scan-auto-refresh (not alloc-scan-auto-refresh))
-  (if alloc-scan-auto-refresh
-      (alloc-scan--start-polling-timer)
-    (alloc-scan--stop-polling-timer))
-  (message "Auto-refresh %s" (if alloc-scan-auto-refresh "enabled" "disabled")))
-
-;;; Parsing functions
-
-(defun alloc-scan--parse-curly-brace-allocations (content)
-  "Parse curly brace format allocations from CONTENT.
-Returns list of (filepath line col-start col-end blocks)."
-  (condition-case err
-      (let ((allocations nil)
-            (start 0)
-            (match-count 0)
-            (last-start -1)
-            (max-iterations 10000)) ; Prevent runaway parsing
-        (while (and (string-match "(alloc{\\([^}]+\\)}[ \t\n]*\\([0-9]+\\)\\(?:[ \t\n]+[0-9]+\\)*" content start)
-                    (< start (length content))
-                    (not (= start last-start)) ; Prevent infinite loops
-                    (< match-count max-iterations)) ; Hard limit
-          (setq last-start start)
-          (setq match-count (1+ match-count))
-          (let ((locations-str (match-string 1 content))
-                (blocks-str (match-string 2 content))
-                (match-start (match-beginning 0))
-                (match-end-pos (match-end 0)))
-            ;; Validate blocks is a valid number
-            (when (and blocks-str (string-match "^[0-9]+$" blocks-str))
-              (let ((blocks (string-to-number blocks-str)))
-                (when alloc-scan-debug
-                  (message "Found allocation %d at pos %d-%d: locations='%s' blocks=%d" 
-                           match-count match-start match-end-pos locations-str blocks))
-                ;; Parse locations: filepath:line,col_start-col_end;...
-                (dolist (loc-str (split-string locations-str ";"))
-                  (when (string-match "\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\)" loc-str)
-                    (let ((filepath (match-string 1 loc-str))
-                          (line-str (match-string 2 loc-str))
-                          (col-start-str (match-string 3 loc-str))
-                          (col-end-str (match-string 4 loc-str)))
-                      ;; Validate all numbers
-                      (when (and line-str col-start-str col-end-str
-                                 (string-match "^[0-9]+$" line-str)
-                                 (string-match "^[0-9]+$" col-start-str)
-                                 (string-match "^[0-9]+$" col-end-str))
-                        (let ((line-num (string-to-number line-str))
-                              (col-start (string-to-number col-start-str))
-                              (col-end (string-to-number col-end-str)))
-                          ;; Validate logical constraints
-                          (when (and (> line-num 0) (>= col-end col-start) (>= col-start 0))
-                            (when alloc-scan-debug
-                              (message "  -> %s:%d,%d-%d (%d blocks)" 
-                                       filepath line-num col-start col-end blocks))
-                            (push (list filepath line-num col-start col-end blocks) allocations)))))))))
-            (setq start match-end-pos)
-            ;; Safety check: if we're not advancing, break
-            (when (= start last-start)
-              (when alloc-scan-debug
-                (message "WARNING: No progress made, advancing by 1 character"))
-              (setq start (1+ start)))))
-        (when (>= match-count max-iterations)
-          (message "WARNING: Hit maximum iteration limit (%d), stopping parse" max-iterations))
-        (nreverse allocations))
-    (error
-     (message "Error parsing curly brace allocations: %s" (error-message-string err))
-     nil)))
-
-(defun alloc-scan--parse-description-allocations (content)
-  "Parse description format allocations from CONTENT.
-Returns list of (filepath line col-start col-end blocks)."
-  (condition-case err
-      (let ((allocations nil)
-            (start 0)
-            (match-count 0)
-            (last-start -1)
-            (max-iterations 10000)) ; Prevent runaway parsing
-        (while (and (string-match "(alloc[ \t\n]+\\([0-9]+\\)[ \t\n]+\"\\([^\"]+\\)" content start)
-                    (< start (length content))
-                    (not (= start last-start)) ; Prevent infinite loops
-                    (< match-count max-iterations)) ; Hard limit
-          (setq last-start start)
-          (setq match-count (1+ match-count))
-          (let ((blocks-str (match-string 1 content))
-                (description (match-string 2 content))
-                (match-start (match-beginning 0))
-                (match-end-pos (match-end 0)))
-            ;; Validate blocks is a valid number
-            (when (and blocks-str (string-match "^[0-9]+$" blocks-str))
-              (let ((blocks (string-to-number blocks-str)))
-                (when alloc-scan-debug
-                  (message "Found description-format allocation %d at pos %d-%d: desc='%s' blocks=%d" 
-                           match-count match-start match-end-pos description blocks))
-                ;; Extract location info from description: [file.ml:line,col--col]
-                (when (string-match "\\[\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)--\\([0-9]+\\)\\]" description)
-                  (let ((filepath (match-string 1 description))
-                        (line-str (match-string 2 description))
-                        (col-start-str (match-string 3 description))
-                        (col-end-str (match-string 4 description)))
-                    ;; Validate all numbers
-                    (when (and line-str col-start-str col-end-str
-                               (string-match "^[0-9]+$" line-str)
-                               (string-match "^[0-9]+$" col-start-str)
-                               (string-match "^[0-9]+$" col-end-str))
-                      (let ((line-num (string-to-number line-str))
-                            (col-start (string-to-number col-start-str))
-                            (col-end (string-to-number col-end-str)))
-                        ;; Validate logical constraints
-                        (when (and (> line-num 0) (>= col-end col-start) (>= col-start 0))
-                          (when alloc-scan-debug
-                            (message "  -> %s:%d,%d-%d (%d blocks)" 
-                                     filepath line-num col-start col-end blocks))
-                          (push (list filepath line-num col-start col-end blocks) allocations))))))))
-            (setq start match-end-pos)
-            ;; Safety check: if we're not advancing, break
-            (when (= start last-start)
-              (when alloc-scan-debug
-                (message "WARNING: No progress made, advancing by 1 character"))
-              (setq start (1+ start)))))
-        (when (>= match-count max-iterations)
-          (message "WARNING: Hit maximum iteration limit (%d), stopping parse" max-iterations))
-        (nreverse allocations))
-    (error
-     (message "Error parsing description allocations: %s" (error-message-string err))
-     nil)))
-
-(defun alloc-scan--parse-dump-file (file)
-  "Parse allocation information from dump FILE.
-Returns list of (filepath line col-start col-end blocks).
-Uses caching to avoid re-parsing unchanged files."
-  (when (and file (file-readable-p file))
-    ;; Try cache first
-    (or (alloc-scan--cache-get file)
-        ;; Cache miss - parse and cache result
-        (let ((allocations
-               (with-temp-buffer
-                 (insert-file-contents file)
-                 (let ((content (buffer-string)))
-                   (when alloc-scan-debug
-                     (message "Parsing file: %s (%d chars)" file (length content)))
-                   ;; Parse both formats and combine results
-                   (let ((curly-allocations (alloc-scan--parse-curly-brace-allocations content))
-                         (desc-allocations (alloc-scan--parse-description-allocations content)))
-                     (let ((total-allocations (append curly-allocations desc-allocations)))
-                       (when alloc-scan-debug
-                         (message "Total allocations found: %d (curly: %d, description: %d)" 
-                                  (length total-allocations)
-                                  (length curly-allocations)
-                                  (length desc-allocations)))
-                       total-allocations))))))
-          ;; Cache the result
-          (alloc-scan--cache-put file allocations)
-          allocations))))
-
-
-;;; CMM allocation decoding functions
+;;; ============================================================================
+;;; OCaml CMM Allocation Decoding
+;;; ============================================================================
 
 (defun alloc-scan--decode-allocation-number (alloc-number)
   "Decode CMM allocation number into size and tag components.
@@ -590,91 +193,35 @@ Returns formatted string with decoded allocation details."
               type-name size-words size-bytes)
     (format " [Raw: %s]" alloc-number)))
 
-;;; Highlighting functions
+;;; ============================================================================
+;;; Project Discovery and File Management
+;;; ============================================================================
 
-(defun alloc-scan--get-highlight-face ()
-  "Get the face to use for highlighting based on user preferences.
-Returns a face specification based on `alloc-scan-highlight-style'."
-  (pcase alloc-scan-highlight-style
-    ('box `(:box (:line-width 1 :color ,alloc-scan-highlight-color :style nil)))
-    ('underline `(:underline (:color ,alloc-scan-highlight-color :style line)))
-    ('background `(:background ,alloc-scan-highlight-color))
-    ('bold `(:weight bold :foreground ,alloc-scan-highlight-color))
-    ('custom 'alloc-scan-highlight-face)
-    (_ 'alloc-scan-highlight-face)))
+(defun alloc-scan--find-dune-project (filepath)
+  "Find the dune-project file starting from FILEPATH.
+Traverses up the directory tree until a dune-project file is found.
+Returns the directory containing dune-project, or nil if not found."
+  (when (and filepath (or (file-exists-p filepath) (file-directory-p filepath)))
+    (let ((dir (file-name-directory (expand-file-name filepath))))
+      (while (and dir
+                  (not (file-exists-p (expand-file-name "dune-project" dir)))
+                  (not (string= dir (file-name-directory (directory-file-name dir)))))
+        (setq dir (file-name-directory (directory-file-name dir))))
+      (when (and dir (file-exists-p (expand-file-name "dune-project" dir)))
+        dir))))
 
-(defun alloc-scan--create-overlay (line col-start col-end blocks)
-  "Create an overlay for allocation at LINE from COL-START to COL-END with BLOCKS.
-Returns the created overlay, or nil if positions are invalid."
-  (when-let* ((positions (alloc-scan--calculate-positions line col-start col-end)))
-    (let ((overlay (make-overlay (car positions) (cdr positions))))
-      (alloc-scan--configure-overlay overlay blocks)
-      (push overlay alloc-scan--overlays)
-      overlay)))
-
-(defun alloc-scan--calculate-positions (line col-start col-end)
-  "Calculate buffer positions for LINE, COL-START, and COL-END.
-Returns cons (START-POS . END-POS) or nil if invalid."
-  (save-excursion
-    (goto-char (point-min))
-    (when (= (forward-line (1- line)) 0)
-      (let* ((line-start (point))
-             (line-end (line-end-position))
-             (line-length (- line-end line-start)))
-        (when (and (>= col-end col-start)
-                   (<= col-start line-length))
-          (let ((start-pos (+ line-start col-start))
-                (end-pos (min (+ line-start col-end) line-end)))
-            (cons start-pos end-pos)))))))
-
-(defun alloc-scan--configure-overlay (overlay blocks)
-  "Configure OVERLAY with face and virtual text for BLOCKS."
-  (overlay-put overlay 'face (alloc-scan--get-highlight-face))
-  (overlay-put overlay 'alloc-scan t)
-  
-  (when alloc-scan-show-virtual-text
-    (let ((text (alloc-scan--format-allocation-info blocks)))
-      (overlay-put overlay 'after-string
-                   (propertize text 'face alloc-scan-virtual-text-face)))))
-
-(defun alloc-scan--clear-overlays ()
-  "Remove all allocation overlays in the current buffer.
-Cleans up both the overlays and the tracking list."
-  (dolist (overlay alloc-scan--overlays)
-    (delete-overlay overlay))
-  (setq alloc-scan--overlays nil))
-
-(defun alloc-scan--highlight-allocations (allocations &optional dump-file)
-  "Highlight ALLOCATIONS in the current buffer.
-Filters allocations to only those relevant to the current file.
-Clears existing overlays before applying new ones.
-If DUMP-FILE is provided, start watching it for changes."
-  (alloc-scan--clear-overlays)
-  (when-let* ((current-file (buffer-file-name)))
-    (let ((relevant-allocations (alloc-scan--filter-allocations-for-file 
-                                allocations current-file)))
-      (dolist (alloc relevant-allocations)
-        (cl-destructuring-bind (filepath line col-start col-end blocks) alloc
-          (alloc-scan--create-overlay line col-start col-end blocks)))
-      ;; Set up automatic cleanup hooks for this buffer
-      (alloc-scan--setup-buffer-hooks)
-      ;; Start watching the dump file if provided
-      (when dump-file
-        (alloc-scan--start-watching-file dump-file (current-buffer))))))
-
-(defun alloc-scan--filter-allocations-for-file (allocations current-file)
-  "Filter ALLOCATIONS to only those relevant to CURRENT-FILE.
-Matches based on file path suffix or basename.
-Returns filtered list of allocations."
-  (cl-remove-if-not
-   (lambda (alloc)
-     (let ((filepath (car alloc)))
-       (or (string-suffix-p filepath current-file)
-           (string-suffix-p (file-name-nondirectory filepath)
-                            (file-name-nondirectory current-file)))))
-   allocations))
-
-;;; File selection
+(defun alloc-scan--find-build-files (project-root pattern)
+  "Find files matching PATTERN in _build directories under PROJECT-ROOT.
+Returns a list of absolute file paths, or empty list if none found."
+  (when (and project-root (file-directory-p project-root))
+    (let ((build-dir (expand-file-name "_build" project-root)))
+      (when (file-directory-p build-dir)
+        (condition-case err
+            (directory-files-recursively build-dir pattern t)
+          (error
+           (when alloc-scan-debug
+             (message "Error scanning build directory %s: %s" build-dir (error-message-string err)))
+           nil))))))
 
 (defun alloc-scan--select-dump-file ()
   "Select a .cmx.dump file using minibuffer completion."
@@ -714,11 +261,466 @@ Returns filtered list of allocations."
                                       (caar file-alist))))
         (cdr (assoc choice file-alist)))))))
 
-;;; Statistics and analysis
+;;; ============================================================================
+;;; Caching System
+;;; ============================================================================
+
+(defun alloc-scan--cache-key (file)
+  "Generate cache key for FILE based on path and modification time."
+  (when (and file (file-exists-p file))
+    (cons file (file-attribute-modification-time (file-attributes file)))))
+
+(defun alloc-scan--cache-get (file)
+  "Get cached allocations for FILE, or nil if not cached or stale."
+  (let ((key (alloc-scan--cache-key file)))
+    (when key
+      (let ((cached (gethash key alloc-scan--cache)))
+        (when cached
+          ;; Update access order for LRU
+          (setq alloc-scan--cache-order 
+                (cons key (delete key alloc-scan--cache-order)))
+          (when alloc-scan-debug
+            (message "Cache hit for %s" file))
+          cached)))))
+
+(defun alloc-scan--cache-put (file allocations)
+  "Cache ALLOCATIONS for FILE."
+  (let ((key (alloc-scan--cache-key file)))
+    (when key
+      ;; Evict oldest entries if cache is full
+      (while (>= (hash-table-count alloc-scan--cache) alloc-scan-cache-size)
+        (let ((oldest-key (car (last alloc-scan--cache-order))))
+          (when oldest-key
+            (remhash oldest-key alloc-scan--cache)
+            (setq alloc-scan--cache-order (butlast alloc-scan--cache-order)))))
+      
+      ;; Add new entry
+      (puthash key allocations alloc-scan--cache)
+      (setq alloc-scan--cache-order 
+            (cons key (delete key alloc-scan--cache-order)))
+      (when alloc-scan-debug
+        (message "Cached %d allocations for %s" (length allocations) file)))))
+
+(defun alloc-scan--cache-clear ()
+  "Clear the allocation cache."
+  (interactive)
+  (clrhash alloc-scan--cache)
+  (setq alloc-scan--cache-order nil)
+  (when alloc-scan-debug
+    (message "Allocation cache cleared")))
+
+;;; ============================================================================
+;;; CMM Dump File Parsing
+;;; ============================================================================
+
+(defun alloc-scan--parse-allocation-match (regex content handler-fn)
+  "Generic function to parse allocations using REGEX in CONTENT.
+Calls HANDLER-FN for each match to extract allocation data.
+Returns list of allocations."
+  (condition-case err
+      (let ((allocations nil)
+            (start 0)
+            (match-count 0)
+            (max-iterations 10000))
+        (while (and (string-match regex content start)
+                    (< start (length content))
+                    (< match-count max-iterations))
+          (let ((match-start (match-beginning 0))
+                (match-end-pos (match-end 0)))
+            (setq match-count (1+ match-count))
+            (when-let* ((allocation (funcall handler-fn content)))
+              (push allocation allocations))
+            ;; Ensure we make progress
+            (if (> match-end-pos start)
+                (setq start match-end-pos)
+              (setq start (1+ start)))))
+        (when (>= match-count max-iterations)
+          (message "WARNING: Hit maximum iteration limit (%d), stopping parse" max-iterations))
+        (nreverse allocations))
+    (error
+     (message "Error parsing allocations: %s" (error-message-string err))
+     nil)))
+
+(defun alloc-scan--parse-curly-brace-allocation (content)
+  "Parse a single curly brace allocation from CONTENT at current match.
+Returns (filepath line col-start col-end blocks) or nil."
+  (let ((locations-str (match-string 1 content))
+        (blocks-str (match-string 2 content)))
+    (when (and blocks-str (string-match "^[0-9]+$" blocks-str))
+      (let ((blocks (string-to-number blocks-str)))
+        (when alloc-scan-debug
+          (message "Found allocation: locations='%s' blocks=%d" locations-str blocks))
+        ;; Parse first location: filepath:line,col_start-col_end
+        (when (string-match "\\([^:;]+\\):\\([0-9]+\\),\\([0-9]+\\)-\\([0-9]+\\)" locations-str)
+          (let ((filepath (match-string 1 locations-str))
+                (line-str (match-string 2 locations-str))
+                (col-start-str (match-string 3 locations-str))
+                (col-end-str (match-string 4 locations-str)))
+            (when (and line-str col-start-str col-end-str
+                       (string-match "^[0-9]+$" line-str)
+                       (string-match "^[0-9]+$" col-start-str)
+                       (string-match "^[0-9]+$" col-end-str))
+              (let ((line-num (string-to-number line-str))
+                    (col-start (string-to-number col-start-str))
+                    (col-end (string-to-number col-end-str)))
+                (when (and (> line-num 0) (>= col-end col-start) (>= col-start 0))
+                  (list filepath line-num col-start col-end blocks))))))))))
+
+(defun alloc-scan--parse-description-allocation (content)
+  "Parse a single description allocation from CONTENT at current match.
+Returns (filepath line col-start col-end blocks) or nil."
+  (let ((blocks-str (match-string 1 content))
+        (description (match-string 2 content)))
+    (when (and blocks-str (string-match "^[0-9]+$" blocks-str))
+      (let ((blocks (string-to-number blocks-str)))
+        (when alloc-scan-debug
+          (message "Found description allocation: desc='%s' blocks=%d" description blocks))
+        ;; Extract location info from description: [file.ml:line,col--col]
+        (when (string-match "\\[\\([^:]+\\):\\([0-9]+\\),\\([0-9]+\\)--\\([0-9]+\\)\\]" description)
+          (let ((filepath (match-string 1 description))
+                (line-str (match-string 2 description))
+                (col-start-str (match-string 3 description))
+                (col-end-str (match-string 4 description)))
+            (when (and line-str col-start-str col-end-str
+                       (string-match "^[0-9]+$" line-str)
+                       (string-match "^[0-9]+$" col-start-str)
+                       (string-match "^[0-9]+$" col-end-str))
+              (let ((line-num (string-to-number line-str))
+                    (col-start (string-to-number col-start-str))
+                    (col-end (string-to-number col-end-str)))
+                (when (and (> line-num 0) (>= col-end col-start) (>= col-start 0))
+                  (list filepath line-num col-start col-end blocks))))))))))
+
+(defun alloc-scan--parse-curly-brace-allocations (content)
+  "Parse curly brace format allocations from CONTENT."
+  (alloc-scan--parse-allocation-match
+   "(alloc{\\([^}]+\\)}[ \t\n]*\\([0-9]+\\)"
+   content
+   #'alloc-scan--parse-curly-brace-allocation))
+
+(defun alloc-scan--parse-description-allocations (content)
+  "Parse description format allocations from CONTENT."
+  (alloc-scan--parse-allocation-match
+   "(alloc[ \t\n]+\\([0-9]+\\)[ \t\n]+\"\\([^\"]+\\)"
+   content
+   #'alloc-scan--parse-description-allocation))
+
+(defun alloc-scan--parse-dump-file (file)
+  "Parse allocation information from dump FILE.
+Returns list of (filepath line col-start col-end blocks).
+Uses caching to avoid re-parsing unchanged files."
+  (when (and file (file-readable-p file))
+    ;; Try cache first
+    (or (alloc-scan--cache-get file)
+        ;; Cache miss - parse and cache result
+        (let ((allocations
+               (with-temp-buffer
+                 (insert-file-contents file)
+                 (let ((content (buffer-string)))
+                   (when alloc-scan-debug
+                     (message "Parsing file: %s (%d chars)" file (length content)))
+                   ;; Parse both formats and combine results
+                   (let ((curly-allocations (alloc-scan--parse-curly-brace-allocations content))
+                         (desc-allocations (alloc-scan--parse-description-allocations content)))
+                     (let ((total-allocations (append curly-allocations desc-allocations)))
+                       (when alloc-scan-debug
+                         (message "Total allocations found: %d (curly: %d, description: %d)" 
+                                  (length total-allocations)
+                                  (length curly-allocations)
+                                  (length desc-allocations)))
+                       total-allocations))))))
+          ;; Cache the result
+          (alloc-scan--cache-put file allocations)
+          allocations))))
+
+;;; ============================================================================
+;;; Overlay Management and Highlighting
+;;; ============================================================================
+
+(defun alloc-scan--get-highlight-face ()
+  "Get the face to use for highlighting based on user preferences."
+  (pcase alloc-scan-highlight-style
+    ('box `(:box (:line-width 1 :color ,alloc-scan-highlight-color :style nil)))
+    ('underline `(:underline (:color ,alloc-scan-highlight-color :style line)))
+    ('background `(:background ,alloc-scan-highlight-color))
+    ('bold `(:weight bold :foreground ,alloc-scan-highlight-color))
+    ('custom 'alloc-scan-highlight-face)
+    (_ 'alloc-scan-highlight-face)))
+
+(defun alloc-scan--calculate-positions (line col-start col-end)
+  "Calculate buffer positions for LINE, COL-START, and COL-END.
+Returns cons (START-POS . END-POS) or nil if invalid."
+  (save-excursion
+    (goto-char (point-min))
+    (when (= (forward-line (1- line)) 0)
+      (let* ((line-start (point))
+             (line-end (line-end-position))
+             (line-length (- line-end line-start)))
+        (when (and (>= col-end col-start)
+                   (<= col-start line-length))
+          (let ((start-pos (+ line-start col-start))
+                (end-pos (min (+ line-start col-end) line-end)))
+            (cons start-pos end-pos)))))))
+
+(defun alloc-scan--create-overlay (line col-start col-end blocks)
+  "Create an overlay for allocation at LINE from COL-START to COL-END with BLOCKS.
+Returns the created overlay, or nil if positions are invalid."
+  (when-let* ((positions (alloc-scan--calculate-positions line col-start col-end)))
+    (let ((overlay (make-overlay (car positions) (cdr positions))))
+      (alloc-scan--configure-overlay overlay blocks)
+      (push overlay alloc-scan--overlays)
+      overlay)))
+
+(defun alloc-scan--configure-overlay (overlay blocks)
+  "Configure OVERLAY with face and virtual text for BLOCKS."
+  (overlay-put overlay 'face (alloc-scan--get-highlight-face))
+  (overlay-put overlay 'alloc-scan t)
+  
+  (when alloc-scan-show-virtual-text
+    (let ((text (alloc-scan--format-allocation-info blocks)))
+      (overlay-put overlay 'after-string
+                   (propertize text 'face alloc-scan-virtual-text-face)))))
+
+(defun alloc-scan--clear-overlays ()
+  "Remove all allocation overlays in the current buffer."
+  (dolist (overlay alloc-scan--overlays)
+    (delete-overlay overlay))
+  (setq alloc-scan--overlays nil))
+
+(defun alloc-scan--filter-allocations-for-file (allocations current-file)
+  "Filter ALLOCATIONS to only those relevant to CURRENT-FILE.
+Matches based on file path suffix or basename."
+  (cl-remove-if-not
+   (lambda (alloc)
+     (let ((filepath (car alloc)))
+       (or (string-suffix-p filepath current-file)
+           (string-suffix-p (file-name-nondirectory filepath)
+                            (file-name-nondirectory current-file)))))
+   allocations))
+
+(defun alloc-scan--highlight-allocations (allocations &optional dump-file)
+  "Highlight ALLOCATIONS in the current buffer.
+Filters allocations to only those relevant to the current file.
+If DUMP-FILE is provided, start watching it for changes."
+  (alloc-scan--clear-overlays)
+  (when-let* ((current-file (buffer-file-name)))
+    (let ((relevant-allocations (alloc-scan--filter-allocations-for-file 
+                                allocations current-file)))
+      (dolist (alloc relevant-allocations)
+        (cl-destructuring-bind (filepath line col-start col-end blocks) alloc
+          (alloc-scan--create-overlay line col-start col-end blocks)))
+      ;; Set up automatic cleanup and file watching
+      (alloc-scan--setup-buffer-management dump-file))))
+
+;;; ============================================================================
+;;; Buffer Management and Cleanup
+;;; ============================================================================
+
+(defun alloc-scan--setup-buffer-management (&optional dump-file)
+  "Set up buffer management hooks and file watching."
+  (alloc-scan--setup-buffer-hooks)
+  (when dump-file
+    (alloc-scan--start-watching-file dump-file (current-buffer))))
+
+(defun alloc-scan--setup-buffer-hooks ()
+  "Set up hooks for automatic cleanup."
+  (add-hook 'kill-buffer-hook #'alloc-scan--buffer-cleanup nil t)
+  (add-hook 'change-major-mode-hook #'alloc-scan--buffer-cleanup nil t))
+
+(defun alloc-scan--buffer-cleanup ()
+  "Clean up alloc-scan overlays when buffer is killed or changed."
+  (when (bound-and-true-p alloc-scan--overlays)
+    (alloc-scan--clear-overlays))
+  (alloc-scan--stop-watching-buffer (current-buffer)))
+
+(defun alloc-scan--global-cleanup ()
+  "Clean up alloc-scan data from all buffers."
+  (dolist (buffer (buffer-list))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (when (bound-and-true-p alloc-scan--overlays)
+          (alloc-scan--clear-overlays)))))
+  ;; Stop all file watchers and polling
+  (maphash (lambda (file _) (alloc-scan--stop-watching-file file)) alloc-scan--file-watchers)
+  (clrhash alloc-scan--watched-buffers)
+  (alloc-scan--stop-polling-timer)
+  (clrhash alloc-scan--file-mtimes))
+
+;;; ============================================================================
+;;; File Watching and Auto-refresh
+;;; ============================================================================
+
+(defun alloc-scan--file-changed-callback (event)
+  "Handle file change EVENT for watched dump files."
+  (let ((file (nth 2 event))
+        (change-type (nth 1 event)))
+    (when alloc-scan-debug
+      (message "File change detected: %s (%s)" file change-type))
+    
+    (when (and alloc-scan-auto-refresh
+               (member change-type '(created changed)))
+      ;; Invalidate cache for this file
+      (alloc-scan--invalidate-cache-for-file file)
+      ;; Refresh all buffers watching this file
+      (alloc-scan--refresh-watching-buffers file))))
+
+(defun alloc-scan--invalidate-cache-for-file (file)
+  "Invalidate cache entries for FILE."
+  (let ((keys-to-remove nil))
+    (maphash (lambda (key _)
+               (when (and (consp key) (string= (car key) file))
+                 (push key keys-to-remove)))
+             alloc-scan--cache)
+    (dolist (key keys-to-remove)
+      (remhash key alloc-scan--cache)
+      (setq alloc-scan--cache-order (delete key alloc-scan--cache-order)))))
+
+(defun alloc-scan--refresh-watching-buffers (file)
+  "Refresh all buffers watching FILE."
+  (maphash (lambda (buffer watched-file)
+             (when (and (string= watched-file file)
+                        (buffer-live-p buffer))
+               (with-current-buffer buffer
+                 (when (and (bound-and-true-p alloc-scan--overlays)
+                            alloc-scan--overlays)
+                   (when alloc-scan-debug
+                     (message "Auto-refreshing buffer %s" (buffer-name)))
+                   (let ((allocations (alloc-scan--parse-dump-file file)))
+                     (when allocations
+                       (alloc-scan--highlight-allocations allocations)
+                       (message "Auto-refreshed %d allocations from %s" 
+                               (length allocations) 
+                               (file-name-nondirectory file))))))))
+           alloc-scan--watched-buffers))
+
+(defun alloc-scan--start-watching-file (file buffer)
+  "Start watching FILE for changes, associating it with BUFFER."
+  (when (file-exists-p file)
+    ;; Try file-notify first if available
+    (if (and (fboundp 'file-notify-add-watch)
+             (not (gethash file alloc-scan--file-watchers)))
+        (condition-case err
+            (let ((descriptor (file-notify-add-watch 
+                              file
+                              '(change)
+                              #'alloc-scan--file-changed-callback)))
+              (puthash file descriptor alloc-scan--file-watchers)
+              (when alloc-scan-debug
+                (message "Started file-notify watching: %s" file)))
+          (error
+           (when alloc-scan-debug
+             (message "File-notify failed for %s: %s" file (error-message-string err)))
+           (alloc-scan--start-polling-timer)))
+      (progn
+        (when alloc-scan-debug
+          (message "Using polling for file watching: %s" file))
+        (alloc-scan--start-polling-timer)))
+    
+    ;; Store initial modification time and associate buffer
+    (let ((mtime (file-attribute-modification-time (file-attributes file))))
+      (when mtime
+        (puthash file mtime alloc-scan--file-mtimes)))
+    (puthash buffer file alloc-scan--watched-buffers)))
+
+(defun alloc-scan--stop-watching-file (file)
+  "Stop watching FILE for changes."
+  (when-let* ((descriptor (gethash file alloc-scan--file-watchers)))
+    (condition-case err
+        (when (fboundp 'file-notify-rm-watch)
+          (file-notify-rm-watch descriptor)
+          (remhash file alloc-scan--file-watchers)
+          (when alloc-scan-debug
+            (message "Stopped watching file: %s" file)))
+      (error
+       (when alloc-scan-debug
+         (message "Failed to stop watching file %s: %s" file (error-message-string err)))))))
+
+(defun alloc-scan--stop-watching-buffer (buffer)
+  "Stop watching files for BUFFER."
+  (when-let* ((watched-file (gethash buffer alloc-scan--watched-buffers)))
+    (remhash buffer alloc-scan--watched-buffers)
+    (alloc-scan--cleanup-file-watchers)))
+
+(defun alloc-scan--cleanup-file-watchers ()
+  "Clean up file watchers for dead buffers."
+  (let ((buffers-to-remove nil))
+    ;; Find dead buffers
+    (maphash (lambda (buffer _)
+               (unless (buffer-live-p buffer)
+                 (push buffer buffers-to-remove)))
+             alloc-scan--watched-buffers)
+    
+    ;; Remove dead buffer associations
+    (dolist (buffer buffers-to-remove)
+      (remhash buffer alloc-scan--watched-buffers))
+    
+    ;; Stop watching files that no longer have live buffers
+    (let ((files-to-stop-watching nil))
+      (maphash (lambda (file _)
+                 (let ((has-live-buffer nil))
+                   (maphash (lambda (buffer watched-file)
+                              (when (and (string= watched-file file)
+                                        (buffer-live-p buffer))
+                                (setq has-live-buffer t)))
+                            alloc-scan--watched-buffers)
+                   (unless has-live-buffer
+                     (push file files-to-stop-watching))))
+               alloc-scan--file-watchers)
+      
+      (dolist (file files-to-stop-watching)
+        (alloc-scan--stop-watching-file file)))
+    
+    ;; Stop polling if no files are being watched
+    (when (= (hash-table-count alloc-scan--watched-buffers) 0)
+      (alloc-scan--stop-polling-timer))))
+
+(defun alloc-scan--polling-check-files ()
+  "Check all watched files for changes (polling mode)."
+  (when alloc-scan-auto-refresh
+    (let ((files-to-check (make-hash-table :test 'equal)))
+      ;; Collect unique files being watched
+      (maphash (lambda (buffer file)
+                 (when (buffer-live-p buffer)
+                   (puthash file t files-to-check)))
+               alloc-scan--watched-buffers)
+      
+      ;; Check each file for changes
+      (maphash (lambda (file _)
+                 (when (file-exists-p file)
+                   (let* ((current-mtime (file-attribute-modification-time (file-attributes file)))
+                          (stored-mtime (gethash file alloc-scan--file-mtimes)))
+                     (when (and current-mtime
+                                (or (not stored-mtime)
+                                    (time-less-p stored-mtime current-mtime)))
+                       (puthash file current-mtime alloc-scan--file-mtimes)
+                       (when stored-mtime ; Don't trigger on first check
+                         (alloc-scan--file-changed-callback `(nil changed ,file)))))))
+               files-to-check))))
+
+(defun alloc-scan--start-polling-timer ()
+  "Start the polling timer if needed."
+  (unless alloc-scan--polling-timer
+    (setq alloc-scan--polling-timer
+          (run-at-time alloc-scan-polling-interval 
+                       alloc-scan-polling-interval 
+                       #'alloc-scan--polling-check-files))
+    (when alloc-scan-debug
+      (message "Started polling timer (interval: %s seconds)" alloc-scan-polling-interval))))
+
+(defun alloc-scan--stop-polling-timer ()
+  "Stop the polling timer."
+  (when alloc-scan--polling-timer
+    (cancel-timer alloc-scan--polling-timer)
+    (setq alloc-scan--polling-timer nil)
+    (when alloc-scan-debug
+      (message "Stopped polling timer"))))
+
+;;; ============================================================================
+;;; Statistics and Analysis
+;;; ============================================================================
 
 (defun alloc-scan--analyze-allocations (allocations)
-  "Analyze ALLOCATIONS and return summary statistics.
-Returns an alist with statistics using decoded CMM allocation numbers."
+  "Analyze ALLOCATIONS and return summary statistics using decoded CMM data."
   (when allocations
     (let ((total-count (length allocations))
           (total-words 0)
@@ -740,7 +742,7 @@ Returns an alist with statistics using decoded CMM allocation numbers."
                    (memory-info (alloc-scan--allocation-memory-info size-words))
                    (size-bytes (cdr memory-info)))
               
-              ;; Count total memory usage
+              ;; Accumulate statistics
               (setq total-words (+ total-words size-words))
               (setq total-bytes (+ total-bytes size-bytes))
               
@@ -759,25 +761,23 @@ Returns an alist with statistics using decoded CMM allocation numbers."
                ((< size-words 32) (cl-incf (alist-get 'large size-buckets)))
                (t (cl-incf (alist-get 'huge size-buckets))))))))
       
-      ;; Convert files map to sorted list
-      (let ((files-list nil))
+      ;; Convert hash tables to sorted lists
+      (let ((files-list nil)
+            (types-list nil))
         (maphash (lambda (file count) (push (cons file count) files-list)) files-map)
+        (maphash (lambda (type count) (push (cons type count) types-list)) type-buckets)
         (setq files-list (sort files-list (lambda (a b) (> (cdr a) (cdr b)))))
+        (setq types-list (sort types-list (lambda (a b) (> (cdr a) (cdr b)))))
         
-        ;; Convert type buckets to sorted list
-        (let ((types-list nil))
-          (maphash (lambda (type count) (push (cons type count) types-list)) type-buckets)
-          (setq types-list (sort types-list (lambda (a b) (> (cdr a) (cdr b)))))
-          
-          ;; Return analysis
-          `((total-allocations . ,total-count)
-            (total-words . ,total-words)
-            (total-bytes . ,total-bytes)
-            (average-words . ,(if (> total-count 0) (/ total-words total-count) 0))
-            (files-with-allocations . ,(hash-table-count files-map))
-            (top-files . ,(seq-take files-list 5))
-            (allocation-types . ,(seq-take types-list 10))
-            (size-distribution . ,size-buckets)))))))
+        ;; Return comprehensive analysis
+        `((total-allocations . ,total-count)
+          (total-words . ,total-words)
+          (total-bytes . ,total-bytes)
+          (average-words . ,(if (> total-count 0) (/ total-words total-count) 0))
+          (files-with-allocations . ,(hash-table-count files-map))
+          (top-files . ,(seq-take files-list 5))
+          (allocation-types . ,(seq-take types-list 10))
+          (size-distribution . ,size-buckets))))))
 
 (defun alloc-scan--format-statistics (stats)
   "Format STATS for display using decoded CMM allocation information."
@@ -822,66 +822,9 @@ Returns an alist with statistics using decoded CMM allocation numbers."
                                (cdr entry)))
                      top-files "\n")))))))
 
-;;;###autoload
-(defun alloc-scan-show-statistics ()
-  "Show allocation statistics for the last parsed dump file."
-  (interactive)
-  (if-let* ((dump-file (completing-read 
-                       "Select dump file for statistics: "
-                       (let ((files nil))
-                         (maphash (lambda (key _) 
-                                   (when (stringp (car key))
-                                     (push (car key) files))) 
-                                 alloc-scan--cache)
-                         files)))
-            (allocations (alloc-scan--parse-dump-file dump-file)))
-      (let ((stats (alloc-scan--analyze-allocations allocations)))
-        (with-current-buffer (get-buffer-create "*Alloc-Scan Statistics*")
-          (erase-buffer)
-          (insert (alloc-scan--format-statistics stats))
-          (goto-char (point-min))
-          (read-only-mode 1)
-          (display-buffer (current-buffer))))
-    (message "No allocation data available. Run alloc-scan first.")))
-
-
-;;; Buffer management
-
-(defun alloc-scan--buffer-cleanup ()
-  "Clean up alloc-scan overlays when buffer is killed or changed."
-  (when (bound-and-true-p alloc-scan--overlays)
-    (alloc-scan--clear-overlays))
-  ;; Stop watching files for this buffer
-  (alloc-scan--stop-watching-buffer (current-buffer)))
-
-(defun alloc-scan--setup-buffer-hooks ()
-  "Set up hooks for automatic cleanup."
-  (add-hook 'kill-buffer-hook #'alloc-scan--buffer-cleanup nil t)
-  (add-hook 'change-major-mode-hook #'alloc-scan--buffer-cleanup nil t))
-
-(defun alloc-scan--global-cleanup ()
-  "Clean up alloc-scan data from all buffers."
-  (dolist (buffer (buffer-list))
-    (when (buffer-live-p buffer)
-      (with-current-buffer buffer
-        (when (bound-and-true-p alloc-scan--overlays)
-          (alloc-scan--clear-overlays)))))
-  ;; Stop all file watchers
-  (maphash (lambda (file _) (alloc-scan--stop-watching-file file)) alloc-scan--file-watchers)
-  (clrhash alloc-scan--watched-buffers)
-  ;; Stop polling timer
-  (alloc-scan--stop-polling-timer)
-  (clrhash alloc-scan--file-mtimes))
-
-;;;###autoload
-(defun alloc-scan-cleanup-all ()
-  "Clean up all alloc-scan overlays and cache."
-  (interactive)
-  (alloc-scan--global-cleanup)
-  (alloc-scan--cache-clear)
-  (message "Cleaned up all alloc-scan data"))
-
-;;; Interactive commands
+;;; ============================================================================
+;;; Interactive Commands
+;;; ============================================================================
 
 ;;;###autoload
 (defun alloc-scan ()
@@ -917,6 +860,46 @@ Returns an alist with statistics using decoded CMM allocation numbers."
   (interactive)
   (alloc-scan--clear-overlays)
   (message "Cleared allocation highlights"))
+
+;;;###autoload
+(defun alloc-scan-show-statistics ()
+  "Show allocation statistics for a selected dump file."
+  (interactive)
+  (if-let* ((dump-file (completing-read 
+                       "Select dump file for statistics: "
+                       (let ((files nil))
+                         (maphash (lambda (key _) 
+                                   (when (stringp (car key))
+                                     (push (car key) files))) 
+                                 alloc-scan--cache)
+                         files)))
+            (allocations (alloc-scan--parse-dump-file dump-file)))
+      (let ((stats (alloc-scan--analyze-allocations allocations)))
+        (with-current-buffer (get-buffer-create "*Alloc-Scan Statistics*")
+          (erase-buffer)
+          (insert (alloc-scan--format-statistics stats))
+          (goto-char (point-min))
+          (read-only-mode 1)
+          (display-buffer (current-buffer))))
+    (message "No allocation data available. Run alloc-scan first.")))
+
+;;;###autoload
+(defun alloc-scan-toggle-auto-refresh ()
+  "Toggle automatic refresh when dump files change."
+  (interactive)
+  (setq alloc-scan-auto-refresh (not alloc-scan-auto-refresh))
+  (if alloc-scan-auto-refresh
+      (alloc-scan--start-polling-timer)
+    (alloc-scan--stop-polling-timer))
+  (message "Auto-refresh %s" (if alloc-scan-auto-refresh "enabled" "disabled")))
+
+;;;###autoload
+(defun alloc-scan-cleanup-all ()
+  "Clean up all alloc-scan overlays and cache."
+  (interactive)
+  (alloc-scan--global-cleanup)
+  (alloc-scan--cache-clear)
+  (message "Cleaned up all alloc-scan data"))
 
 (provide 'alloc-scan)
 
