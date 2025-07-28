@@ -587,7 +587,7 @@ If DUMP-FILE is provided, start watching it for changes."
                      (message "Auto-refreshing buffer %s" (buffer-name)))
                    (let ((allocations (alloc-scan--parse-dump-file file)))
                      (when allocations
-                       (alloc-scan--highlight-allocations allocations)
+                       (alloc-scan--highlight-allocations allocations file)
                        (message "Auto-refreshed %d allocations from %s" 
                                (length allocations) 
                                (file-name-nondirectory file))))))))
