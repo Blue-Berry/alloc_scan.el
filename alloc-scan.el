@@ -189,8 +189,10 @@ Returns formatted string with decoded allocation details."
             (memory-info (alloc-scan--allocation-memory-info size-words))
             (total-words (car memory-info))
             (size-bytes (cdr memory-info)))
-      (format " [%s: %d words (%d bytes)]" 
-              type-name size-words size-bytes)
+      ;; (format " [%s: %d words (%d bytes)]"
+      ;;         type-name size-words size-bytes)
+      (format " [%s: %d words]"
+              type-name size-words)
     (format " [Raw: %s]" alloc-number)))
 
 ;;; ============================================================================
